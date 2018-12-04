@@ -7,7 +7,7 @@ using Opt = ParticleSwarmOptimization.OptimizationFct;
 
 namespace ParticleSwarmOptimization
 {
-    public static class Test
+    public static class PsoTest
     {
         public static void Passed(string title, bool condition)
         {
@@ -69,7 +69,6 @@ namespace ParticleSwarmOptimization
 
             result = result &&
                      swarm.Particles.Count == 40 &&
-                     swarm.TopoUpdatesDone == 0 &&
                      swarm.Iteration == 0 &&
                      swarm.EvalsDone == 0;
 
@@ -204,7 +203,7 @@ namespace ParticleSwarmOptimization
             } 
         }
         
-        private static void Main()
+        public static void TestAll()
         {
 //            Passed("Pso.ArgMin", TestArgMin());
 //            Passed("Swarm.Initialize", TestInitialize());
