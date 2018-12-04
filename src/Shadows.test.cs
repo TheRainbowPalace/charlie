@@ -1,438 +1,254 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Cairo;
 using Geometry;
-using GLib;
-using Gtk;
 using Shadows;
-using Action = System.Action;
-using Application = Gtk.Application;
-using Environment = Shadows.Environment;
-using Key = Gdk.Key;
 using Rectangle = Geometry.Rectangle;
-using Window = Gtk.Window;
 
 namespace sensor_positioning
 {
-  class Plotter : Application
+  public static class ShadowsTest
   {
-    public double XScale = 50;
-    private double _yScale = -50;
-    public double XOffset;
-    public double YOffset;
-    
-    private readonly List<IGeometryObject> _elements = 
-      new List<IGeometryObject>();
-    private double _centerX;
-    private double _centerY;
-    private readonly Window _window;
-    
-    public Plotter() : base("com.jakobrieke.plotter", ApplicationFlags.None)
+    public static void TestUnseenArea()
     {
-      Init();
+      Console.WriteLine("Test Shadows2D.UnseenArea()");
       
-      _window = new Window(WindowType.Toplevel)
-      {
-        WindowPosition = WindowPosition.Center,
-        HeightRequest = 250,
-        WidthRequest = 450,
-        Title = ""
-      };
-      _window.Drawn += (o, args) => Render(args.Cr);
-      _window.ShowAll();
-
-      _window.KeyPressEvent += (o, args) =>
-      {
-        if (args.Event.Key == Key.a) XOffset += 10;
-        else if (args.Event.Key == Key.d) XOffset -= 10;  
-        else if (args.Event.Key == Key.w) YOffset += 10;  
-        else if (args.Event.Key == Key.s) YOffset -= 10;  
-        else if (args.Event.Key == Key.plus) Scale(1);
-        else if (args.Event.Key == Key.minus) Scale(-1);
-        _window.QueueDraw();
-      };
+      var bounds = new Rectangle(0, 0, 9, 6);
+      var s1 = new Arc(0.549550101745069, 6, 12, 56.3, 279.660960965877);
+      var unseen = Shadows2D.UnseenArea(s1, bounds);
+      Console.WriteLine(
+        string.Join("; ", unseen) == "0.54955010174507, 6; 0, 6; 0, 0; " +
+        "1.5709417667158, 0; 9, 6; 0.54955010174507, 6; 9, 2.23071605132997");
       
-      AddWindow(_window);
-    }
-
-    public double YScale
-    {
-      get => _yScale;
-      set => _yScale = -1 * value;
-    }
-
-    public void Scale(double factor)
-    {
-      XScale += factor;
-      _yScale -= factor;
-    }
-    
-    public void Plot(IGeometryObject o)
-    {
-      _elements.Add(o);
-      _window.QueueDraw();
-    }
-
-    public void Plot(IEnumerable<IGeometryObject> objects)
-    {
-      _elements.AddRange(objects);
-      _window.QueueDraw();
-    }
-
-    public void Plot()
-    {
-      Run();
-    }
-
-    private void Render(Context cr)
-    {
-      _centerX = _window.AllocatedWidth / 2.0 + XOffset;
-      _centerY = _window.AllocatedHeight / 2.0 + YOffset;
-      DrawCoordinateSystem(cr);
-      
-      foreach (var element in _elements)
-      {
-        switch (element)
-        {
-          case Segment _:
-            DrawSegment(cr, (Segment) element);
-            break;
-          case Polygon _:
-            DrawPolygon(cr, (Polygon) element);
-            break;
-          case Circle _:
-            DrawCircle(cr, (Circle) element);
-            break;
-          case Rectangle _:
-            DrawRectangle(cr, (Rectangle) element);
-            break;
-          default:
-            Console.WriteLine("Unknown element type: " + element.GetType());
-            break;
-        }
-      }
-    }
-
-    private void DrawCoordinateSystem(Context cr)
-    {
-      cr.SetSourceRGBA(0, 0, 0, 0.7);
-      cr.Rectangle(0, 0, _window.AllocatedWidth, _window.AllocatedHeight);
-      cr.ClosePath();
-      cr.Fill();
-      cr.SetSourceRGBA(1, 1, 1, 0.7);
-      cr.LineWidth = 0.5;
-      cr.NewPath();
-      cr.MoveTo(0, _centerY);
-      cr.LineTo(_window.AllocatedWidth, _centerY);
-      cr.ClosePath();
-      cr.Stroke();
-      cr.NewPath();
-      cr.MoveTo(_centerX, 0);
-      cr.LineTo(_centerX, _window.AllocatedHeight);
-      cr.ClosePath();
-      cr.Stroke();
-    }
-    
-    private void DrawPolygon(Context cr, Polygon p)
-    {
-      if (p.Count == 0) return;
-
-      cr.SetSourceRGBA(0, 0, 0, 0.7);
-      cr.NewPath();
-      cr.MoveTo(p[0].X * XScale + _centerX,
-        p[0].Y * _yScale + _centerY);
-
-      for (var i = 1; i < p.Count; i++)
-      {
-        cr.LineTo(p[i].X * XScale + _centerX,
-          p[i].Y * _yScale + _centerY);
-      }
-
-      if (p[0] != p[p.Count - 1])
-      {
-        cr.MoveTo(p[0].X * XScale + _centerX,
-          p[0].Y * _yScale + _centerY);
-      }
-
-      cr.ClosePath();
-      cr.Fill();
-    }
-
-    private void DrawCircle(Context cr, Circle c)
-    {
-      cr.SetSourceRGBA(1, 0, 0, 0.7);
-      cr.Arc(
-        c.Position.X * XScale + _centerX, 
-        c.Position.Y * _yScale + _centerY, 
-        c.Radius * XScale, 0, 2 * Math.PI);
-      cr.ClosePath();
-      cr.Fill();
-    }
-
-    private void DrawRectangle(Context cr, Rectangle r)
-    {
-      cr.SetSourceRGBA(0, 0, 0, 0.2);
-      cr.Rectangle(r.Min.X * XScale + _centerX, 
-        r.Min.Y * _yScale + _centerY, 
-        r.Width() * XScale, 
-        r.Height() * _yScale);
-      cr.ClosePath();
-      cr.Fill();
-    }
-
-    private void DrawSegment(Context cr, Segment s)
-    {
-      cr.SetSourceRGBA(1, 1, 1, 0.5);
-      cr.NewPath();
-      cr.MoveTo(s.Start.X * XScale + _centerX, s.Start.Y * _yScale + _centerY);
-      cr.LineTo(s.End.X * XScale + _centerX, s.End.Y * _yScale + _centerY);
-      cr.ClosePath();
-      cr.Stroke();
-    }
-  }
-  
-  
-  public class Shadows_test
-  {
-    // Todo: [x] Test Sensor class : AreaOfActivity
-    // Todo: [ ] Test Sensor class : Shadow
-    // Todo: [ ] Test Sensor class : Shadows
-    // Todo: [ ] Test Sensor class : ShadowArea
-    // Todo: [ ] Test Sensor class : ShadowArea
-    
-    // Todo: [ ] Test Shadow class : UnseenArea
-    // Todo: [ ] Test Shadow class : HiddenArea
-    // Todo: [ ] Test Shadow class : Shadows
-    // Todo: [ ] Test Shadow class : Shadows
-    // Todo: [ ] Test Shadow class : CoreShadows
-    // Todo: [ ] Test Shadow class : CoreShadows
-    // Todo: [ ] Test Shadow class : CoreShadows
-    // Todo: [ ] Test Shadow class : CoreShadowArea
-    
-    public static void Main()
-    {
-//      TestArcToPolygon();
-//      TestSensorShadow();
-//      TestHiddenArea();
-      TestTangents();
-    }
-    
-    private static void TestArcToPolygon()
-    {
-      Console.WriteLine("Arc to polygon test");
-      var r1 = new Arc(0, 0, 1, 90).ToPolygon() == new Polygon {
-        new Vector2(0, 0), new Vector2(1, 0),
-        new Vector2(0.866025403784439, 0.5),
-        new Vector2(0.5, 0.866025403784439),
-        new Vector2(6.12303176911189E-17, 1)};
-      Console.WriteLine("Arc to polygon 01: " + r1);
-      
-      // Todo: Fix bug when arc radius is >= 180 degrees
-      var arc2 = new Arc(0, 0, 1, 190).ToPolygon(0);
-      Console.WriteLine("02: " + false);
-      
-      var r3 = new Arc(-1, -1, 1, 90, 180).ToPolygon(4) == new Polygon {
-        new Vector2(-1, -1), new Vector2(-2, -1),
-        new Vector2(-1.95105651629515, -1.30901699437495),
-        new Vector2(-1.80901699437495, -1.58778525229247),
-        new Vector2(-1.58778525229247, -1.80901699437495),
-        new Vector2(-1.30901699437495, -1.95105651629515),
-        new Vector2(-1, -2)};
-      Console.WriteLine("03: " + r3);
-      
-//      var plotter = new Plotter();
-//      plotter.Plot(arc2);
+      // Plot result
+//      var plotter = new Plotter {XScale = 20, YScale = 20};
+//      plotter.Plot(bounds);
+//      plotter.Plot(unseen);
+//      plotter.Plot(new Circle(s1.Position, 0.06));
 //      plotter.Plot();
     }
-
-    private static void TestSensorShadow()
+    
+    public static void TestCoreShadows()
     {
-      var e1 = new Polygon {
-        new Vector2(9.99999974737875, 3.75159990522661),
-        new Vector2(0.999999974737875, 0.999999974737875),
-        new Vector2(2.22289994384482, 4.99999987368938),
-        new Vector2(-9.99999974737875, 4.99999987368938),
-        new Vector2(-9.99999974737875, -4.99999987368938),
-        new Vector2(9.99999974737875, -4.99999987368938),
-        new Vector2(9.99999974737875, 3.75159990522661)
-      };
+      Console.WriteLine("\n Test Shadows2D.CoreShadows()");
       
-      var e2 = new Polygon {
-        new Vector2(5.99509984855104, 4.99999987368938),
-        new Vector2(4.20309989382076, 4.99999987368938),
-        new Vector2(1.87859995254257, 2.09719994702027),
-        new Vector2(2.09719994702027, 1.87859995254257),
-        new Vector2(5.99509984855104, 4.99999987368938)
-      };
-      
-      var e3 = new Polygon {
-        new Vector2(2.55249993551843, 2.58889993459889),
-        new Vector2(1.90919995176955, 2.12619994628767),
-        new Vector2(2.08749994726531, 1.87149995272193),
-        new Vector2(2.70419993168616, 2.29159994210931),
-        new Vector2(4.43199988803826, -1.19919996970566),
-        new Vector2(-7.999999797903, -4.99999987368938),
-        new Vector2(-4.9426998751369, 4.99999987368938),
-        new Vector2(-9.99999974737875, 4.99999987368938),
-        new Vector2(-9.99999974737875, -4.99999987368938),
-        new Vector2(9.99999974737875, -4.99999987368938),
-        new Vector2(9.99999974737875, 4.99999987368938),
-        new Vector2(0.141399996427936, 4.99999987368938),
-        new Vector2 (2.55249993551843, 2.58889993459889)
-      };
-      
-      var env = new Environment(-10, -5, 20, 10);
-      var s1 = new Sensor(1, 1, 45, 13, 56, 0.1555);
-      var s2 = new Sensor(0, 0, 45, 12, 56, 0.1555);
-      env.Obstacles.Add(s1);
-      env.Obstacles.Add(s2);
-      
-      // Run Tests
-      
-      Console.WriteLine("Sensor shadows test");
-      
-      var shadows = s1.Shadows(env);
-      Console.WriteLine("01: " + (shadows[0] == e1));
-      
-      s2.Position = new Vector2(2, 2);
-      shadows = s1.Shadows(env);
-      Console.WriteLine("02: " + (shadows[0] == e1 && shadows[1] == e2));
-
-      s1.Position = new Vector2(-8, -5);
-      shadows = s1.Shadows(env);
-      Console.WriteLine("03: " + (shadows[0] == e3));
-      
-//      s1 = new Sensor(0, 0, 0, 3, 56, 0.1555);
-//      s1.Rotation = 180;
-      shadows = s1.Shadows(env);
-      Console.WriteLine("\n" + string.Join("\n ", shadows));
-      
-      // Plot results
-
-      var plotter = new Plotter {XScale = 20, YScale = 20};
-      plotter.Plot(env.Bounds);
-      plotter.Plot(shadows);
-      foreach (var o in env.Obstacles)
+      var bounds = new Rectangle(0, 0, 9, 6);
+      var obstacles = new List<Circle>
       {
-        plotter.Plot(new Circle(o.Position.X, o.Position.Y, o.Size));
-      }
-      plotter.Plot();
-    }
+        new Circle(1.05481918857192, 0.629068343261754, 0.1555),
+        new Circle(2, 1, .1555)
+      };
+      var sensors = new List<Arc>
+      {
+        new Arc(0.549550101745069, 6, 12, 56.3, 279.660960965877)
+      };
+      var shadows = Shadows2D.CoreShadows(sensors, obstacles, bounds);
 
-    private static void TestHiddenArea()
-    {
-//      var a1 = new Arc(0, 0, .1, 45, -22.5);
-      var s1 = new Vector2(0, 0);
-      var o1 = new Circle(0.5, .5, .1);
-      var bounds = new Rectangle(-1, -1, 1, 1);
+      Console.WriteLine(
+        string.Join("\n", shadows) ==
+        "9, 6; 0.54955010174507, 6; 9, 2.23071605132997; 9, 6\n0.54955010174" +
+        "507, 6; 0, 6; 0, 0; 1.5709417667158, 0; 0.54955010174507, 6\n2.1479" +
+        "825069669, 1.04776429243473; 1.84942949911326, 0.96115705646173; 2." +
+        "09738091758957, 0; 2.48616923654916, 0; 2.1479825069669, 1.04776429" +
+        "243473");
       
-      var hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Expect:
-      // 0.56, 0.42; 1, 0.75; 1, 1; 0.75, 1; 0.42, 0.56; 0.56, 0.42
-
-      s1 = new Vector2(-1, 0);
-      o1 = new Circle(0.5, .5, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Expect:
-      // 0.525559467676119, 0.403321596971643;
-      // 1, 0.528752376445897;
-      // 1, 0.810533337839817;
-      // 0.462440532323881, 0.592678403028357;
-      // 0.525559467676119, 0.403321596971643
-      
-      s1 = new Vector2(-1, -1);
-      o1 = new Circle(0.5, .5, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Expect:
-      // 0.567298733668057, 0.426034599665276; 1, 0.819735534817705; 1, 1;
-      // 0.819735534817704, 1; 0.426034599665276, 0.567298733668057;
-      // 0.567298733668057, 0.426034599665276
-      
-      // Test what happens when sensor is inside obstacle
-      s1 = new Vector2(-0.9, -0.85);
-      o1 = new Circle(-0.9, -0.9, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Expect:
-      // -1, -1; 1, -1; 1, 1; -1, 1
-      
-      s1 = new Vector2(.1, .1);
-      o1 = new Circle(-1, 0, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Expect:
-      // -1, 0.1; -1, 0.1; -1, -0.101666666666667;
-      // -0.981967213114754, -0.0983606557377049; -1, 0.1
-      
-      s1 = new Vector2(-1, -1);
-      o1 = new Circle(1, 1, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Error here
-      
-      s1 = new Vector2(-1, -1);
-      o1 = new Circle(-1, 0, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Error here
-      
-      // Test what happens when sensor is on the edge of the obstacle
-      s1 = new Vector2(-1 + .100001, 0);
-      o1 = new Circle(-1, 0, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Error here
-      
-      s1 = new Vector2(.1, 0);
-      o1 = new Circle(0, 0, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // 0.1, 0; NaN, NaN; 1, -1; 0.1, -1; 0.1, -2.44921270764475E-17; 0.1, 0
-      // Error here
-      
-      s1 = new Vector2(-0.9, .5);
-      o1 = new Circle(-1, 0, .1);
-      hidden = Shadows2D.HiddenArea(s1, o1, bounds);
-      // Error here
-      
-      Console.WriteLine(hidden);
-      var plotter = new Plotter {XScale = 70, YScale = 70};
-      plotter.Plot(bounds);
-      plotter.Plot(new Circle(s1, .05));
-      plotter.Plot(hidden);
-      plotter.Plot(o1);
-      plotter.Plot();
-    }
-
-    private static Segment[] Tangents(Vector2 p, Circle c)
-    {
-      var d = Vector2.Distance(p, c.Position);
-      var l = Math.Sqrt(Math.Pow(d, 2) + Math.Pow(c.Radius, 2));
-      var alpha = Math.Tanh(c.Radius / d);
-      var beta = Math.Sinh(c.Position.Y / d);
-      var t1 = new Segment(p, p.Move(alpha + beta, l, false));
-      var t2 = new Segment(p, p.Move(beta - alpha, l, false));
-      
-      return new[] {t1, t2};
+      // Plot result
+//      var plotter = new Plotter {XScale = 20, YScale = 20};
+//      plotter.Plot(bounds);
+//      plotter.Plot(shadows);
+//      foreach (var o in obstacles) plotter.Plot(o);
+//      plotter.Plot();
     }
     
-    private static void TestTangents()
+    public static void TestHiddenArea()
     {
-      var s1 = new Vector2(0, 0);
-      var o1 = new Circle(0.5, .5, .1);
-      var o2 = new Circle(-0.3, -0.3, .1);
-      var bounds = new Rectangle(-1, -1, 1, 1);
-
-//      var t1 = Tangents(s1, o1);
-//      var t2 = Tangents(s1, o2);
-      var t1 = Circle.Tangents(s1, o1);
-      var t2 = Circle.Tangents(s1, o2);
+      Console.WriteLine("\nTest Shadows2D.HiddenArea()");
       
-      var plotter = new Plotter {XScale = 80, YScale = 80};
-      plotter.Plot(bounds);
-      plotter.Plot(new Circle(s1, .05));
-      plotter.Plot(t1[0]);
-      plotter.Plot(t1[1]);
-      plotter.Plot(t2[0]);
-      plotter.Plot(t2[1]);
-      plotter.Plot(o1);
-      plotter.Plot(o2);
-      plotter.Plot();
+      
+      var b1 = new Rectangle(-1, -1, 1, 1);
+      var b2 = new Rectangle(0, 0, 9, 6);
+      var o1 = new Circle(1.05481918857192, 0.629068343261754, 0.1555);
+
+      var tests = new Dictionary<Polygon, string>
+      {
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0, 0), new Circle(0.5, .5, .1), b1),
+          "1, 0.75; 1, 1; 0.75, 1; 0.42, 0.56; 0.56, 0.42; 1, 0.75"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-1, 0), new Circle(0.5, .5, .1), b1),
+          "1, 0.5287523764459; 1, 0.81053333783982; 0.46244053232388, 0.5926" +
+          "7840302836; 0.52555946767612, 0.40332159697164; 1, 0.5287523764459"
+        },
+        {
+          // Test what happens if circle is in corner of bounds
+          Shadows2D.HiddenArea(
+            new Vector2(-1, -1), new Circle(0.5, .5, .1), b1),
+          "1, 0.81973553481771; 1, 1; 0.81973553481771, 1; 0.42603459966528," +
+          " 0.56729873366806; 0.56729873366806, 0.42603459966528; 1, 0.81973" +
+          "553481771"
+        },
+        {
+          // Test what happens if sensor is inside obstacle
+          Shadows2D.HiddenArea(
+            new Vector2(-0.9, -0.85), new Circle(-0.9, -0.9, .1), b1),
+          b1.ToPolygon().ToString()
+        },
+        {
+          // Test what happens if obstacle is on borders of bounds
+          Shadows2D.HiddenArea(
+            new Vector2(.1, .1), new Circle(-1, 0, .1), b1),
+          "-0.98196721311475, -0.0983606557377; -1, 0.1; -1, -0.101666666666" +
+          "66; -0.98196721311475, -0.0983606557377"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-1, -1), new Circle(1, 1, .1), b1),
+          "1, 1; 0.995, 1; 1, 0.995; 1, 1"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-1, -1), new Circle(-1, 0, .1), b1),
+          "-0.79899243694816, 1; -1, 1; -1, -0.01; -0.90050125628934, -0.01;" +
+          " -0.79899243694816, 1"
+        },
+        {
+          // Test what happens if sensor is inside 2x radius of circle
+          Shadows2D.HiddenArea(
+            new Vector2(-.90001, 0), new Circle(-.8, 0, .1), b1),
+          "1, 1; -0.88586751082734, 1; -0.8999900009999, 0.00141410750651; -" +
+          "0.8999900009999, -0.00141410750651; -0.88586751082734, -1; 1, -1;" +
+          " 1, 1"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-.90001, -.05), new Circle(-.8, 0, .1), b1),
+          "1, 1; -0.89980004198321, 1; -0.8999999980008, 1.99960012E-05; -0." +
+          "85999040225524, -0.08000719740908; 0.36697329534852, -1; 1, -1; 1, 1"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.5, .61), new Circle(.5, .5, .1), b1),
+          "1, 0.38087121525221; 0.54165977904505, 0.59090909090909; 0.458340" +
+          "22095495, 0.59090909090909; -1, -0.07738635424338; -1, -1; 1, -1;" +
+          " 1, 0.38087121525221"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.5, .39), new Circle(.5, .5, .1), b1),
+          "1, 0.61912878474779; 1, 1; -0.83112913043955, 1; 0.45834022095495" +
+          ", 0.40909090909091; 0.54165977904505, 0.40909090909091; 1, 0.6191" +
+          "2878474779"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.61, .5), new Circle(.5, .5, .1), b1),
+          "0.59090909090909, 0.45834022095495; 0.59090909090909, 0.541659779" +
+          "04505; 0.38087121525221, 1; -1, 1; -1, -1; -0.07738635424338, -1;" +
+          " 0.59090909090909, 0.45834022095495"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.39, .5), new Circle(.5, .5, .1), b1),
+          "1, 1; 0.61912878474779, 1; 0.40909090909091, 0.54165977904505; 0." +
+          "40909090909091, 0.45834022095495; 1, -0.83112913043955; 1, 1"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.61, .61), new Circle(.5, .5, .1), b1),
+          "0.59961988767188, 0.49128920323721; 0.49128920323721, 0.599619887" +
+          "67188; -1, 0.46922105398996; -1, -1; 0.46922105398996, -1; 0.5996" +
+          "1988767188, 0.49128920323721"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(.65, .6), new Circle(.5, .5, .1), b1),
+          "0.59230769230769, 0.46153846153846; 0.5, 0.6; -1, 0.6; -1, -1; -0" +
+          ".01666666666667, -1; 0.59230769230769, 0.46153846153846"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-.90001, -.1), new Circle(.5, .5, .1), b1),
+          "1, 0.57037064649587; 1, 0.86654923360652; 0.45465884136027, 0.589" +
+          "13012584534; 0.53327225257532, 0.40569752278671; 1, 0.57037064649587"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-.8, -.15), new Circle(.5, .5, .1), b1),
+          "1, 0.6; 1, 0.91071428571429; 0.44923076923077, 0.58615384615385; " +
+          "0.53846153846154, 0.40769230769231; 1, 0.6"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(-.78, -.15), new Circle(.5, .5, .1), b1),
+          "1, 0.60291503742684; 1, 0.91599923425088; 0.44862134807331, 0.585" +
+          "79180687103; 0.5389568944421, 0.40790026940633; 1, 0.60291503742684"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0.549550101745069, 6), o1, b2),
+          "1.20915148573974, 0.64808917528625; 0.89964726200985, 0.618972640" +
+          "8584; 0.9399184870721, 0; 1.28902585789796, 0; 1.20915148573974, " +
+          "0.64808917528625"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0.549550101745069, 5), o1, b2),
+          "1.20856297484783, 0.65237281024876; 0.89981328266531, 0.616682095" +
+          "48166; 0.94909125818183, 0; 1.30744957695337, 0; 1.20856297484783" +
+          ", 0.65237281024876"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0, 1), o1, b2),
+          "1.08550270971766, 0.7815110260317; 0.98333403274372, 0.4909737289" +
+          "7062; 1.93179426821167, 0; 4.96822649675292, 0; 1.08550270971766," +
+          " 0.7815110260317"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(2, 1), o1, b2),
+          "1.13312477163057, 0.49472369073756; 1.02085048276346, 0.780812789" +
+          "7028; 0, 0.55229062275225; 0, 0; 0.28435409996794, 0; 1.133124771" +
+          "63057, 0.49472369073756"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0, 0), o1, b2),
+          "9, 3.92021175789384; 9, 6; 7.65629401123085, 6; 0.95890279552899," +
+          " 0.75146236086733; 1.11691658069126, 0.48650550135694; 9, 3.92021" +
+          "175789384"
+        },
+        {
+          Shadows2D.HiddenArea(
+            new Vector2(0.549550101745069, 0), o1, b2),
+          "7.67054143891798, 6; 3.6942538580168, 6; 0.91708981201415, 0.7012" +
+          "5469123012; 1.15501527598559, 0.51015243151319; 7.67054143891798, 6"
+        },
+//        {
+//          // Test what happens if sensor is on the edge of the obstacle
+//          // Not implemented
+//          Shadows2D.HiddenArea(new Vector2(.1, 0), new Circle(0, 0, .1), b1), 
+//          ""
+//        }
+      };
+
+      
+      var i = 0;
+      foreach (var test in tests.Keys)
+      {
+        i++;
+        Console.WriteLine(i + ": " + (test.ToString() == tests[test]));
+      }
+
+      // Uncomment to plot last test
+//      var plotter = new Plotter {XScale = 20, YScale = 20};
+//      plotter.Plot(bounds);
+//      plotter.Plot(new Circle(s1, .06));
+//      plotter.Plot(o1);
+//      plotter.Plot(hidden);
+//      plotter.Plot();
     }
   }
 }

@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{728AAEE6-CD09-447C-97FA-EA43BC6E8C48}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>sensor_positioning</RootNamespace>
+    <AssemblyName>sensor_positioning</AssemblyName>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AtkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\AtkSharp.3.22.24.36\lib\netstandard2.0\AtkSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="CairoSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\CairoSharp.3.22.24.36\lib\netstandard2.0\CairoSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GdkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\GdkSharp.3.22.24.36\lib\netstandard2.0\GdkSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GioSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\GioSharp.3.22.24.36\lib\netstandard2.0\GioSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GLibSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\GLibSharp.3.22.24.36\lib\netstandard2.0\GLibSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GtkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\GtkSharp.3.22.24.36\lib\netstandard2.0\GtkSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="LibOptimization, Version=1.12.1.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\LibOptimization.1.12.1\lib\net40\LibOptimization.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MathNet.Numerics, Version=4.7.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\MathNet.Numerics.4.7.0\lib\net461\MathNet.Numerics.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="PangoSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\PangoSharp.3.22.24.36\lib\netstandard2.0\PangoSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\clipper.cs" />
+    <Compile Include="src\Geometry.cs" />
+    <Compile Include="src\Geometry.test.cs" />
+    <Compile Include="src\OptimizationFcts.cs" />
+    <Compile Include="src\Pso.cs" />
+    <Compile Include="src\Pso.test.cs" />
+    <Compile Include="src\SensorPositioning.cs" />
+    <Compile Include="src\SensorPositioning.test.cs" />
+    <Compile Include="src\Shadows.cs" />
+    <Compile Include="src\Shadows.test.cs" />
+    <Compile Include="src\Test.cs" />
+    <Compile Include="src\Tuple.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="packages\SharpDX.2.6.3\build\SharpDX.targets" Condition="Exists('packages\SharpDX.2.6.3\build\SharpDX.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105.The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\SharpDX.2.6.3\build\SharpDX.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\SharpDX.2.6.3\build\SharpDX.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+         Other similar extension points exist, see Microsoft.Common.targets.
+    <Target Name="BeforeBuild">
+    </Target>
+    <Target Name="AfterBuild">
+    </Target>
+    -->
+</Project>

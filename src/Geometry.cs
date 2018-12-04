@@ -1,10 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Cairo;
 using ClipperLib;
 
 namespace Geometry
 {
+  public static class Defs
+  {
+    public static double Precision = 1E-14;
+  }
+  
+  
   public interface IGeometryObject {}
   
   
@@ -18,8 +26,6 @@ namespace Geometry
     /// <returns></returns>
     public static double[] Multiply(double[] vector, double x)
     {
-      var list = new LinkedList<double>(); 
-      
       var result = new double[vector.Length];
       for (var i = 0; i < result.Length; i++) result[i] = vector[i] * x;
       return result;
@@ -120,7 +126,7 @@ namespace Geometry
 
     public static bool operator ==(Vector2 v1, Vector2 v2)
     {
-      return v1.X - v2.X <= 1E-14 && v1.Y - v2.Y <= 1E-14;
+      return v1.X - v2.X <= Defs.Precision && v1.Y - v2.Y <= Defs.Precision;
     }
 
     public static bool operator !=(Vector2 v1, Vector2 v2)
@@ -148,17 +154,25 @@ namespace Geometry
       return Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
     }
 
-    public IntPoint ToIntPoint(double precision = 0.0001f)
+    public static double Gradient(Vector2 a, Vector2 b)
     {
-      return new IntPoint(
-        Math.Round(X / precision),
-        Math.Round(Y / precision));
+      if (b.Y < a.Y)
+      {
+        return Math.Asin((b.X - a.X) / Distance(a, b)) * 180 / Math.PI + 270;
+      }
+      return Math.Asin((a.X - b.X) / Distance(a, b)) * 180 / Math.PI + 90;
     }
 
-    public static Vector2 FromIntPoint(IntPoint point,
-      double precision = 0.0001f)
+    public IntPoint ToIntPoint()
     {
-      return new Vector2(point.X * precision, point.Y * precision);
+      return new IntPoint(
+        Math.Round(X / Defs.Precision), 
+        Math.Round(Y / Defs.Precision));
+    }
+
+    public static Vector2 FromIntPoint(IntPoint point)
+    {
+      return new Vector2(point.X * Defs.Precision, point.Y * Defs.Precision);
     }
 
     /// <summary>
@@ -169,8 +183,7 @@ namespace Geometry
     /// <param name="distance"></param>
     /// <param name="useDegrees"></param>
     /// <returns></returns>
-    public Vector2 Move(double angle, double distance,
-      bool useDegrees = true)
+    public Vector2 Move(double angle, double distance, bool useDegrees = true)
     {
       if (useDegrees) angle *= Math.PI / 180;
 
@@ -200,12 +213,38 @@ namespace Geometry
 
     public void Scale(double value)
     {
-      var d = Vector2.Distance(Start, End);
+      var d = Length();
       End = new Vector2(
         End.X + (End.X - Start.X) / d * value,
         End.Y + (End.Y - Start.Y) / d * value);
     }
 
+    public void Inverse()
+    {
+      var buffer = End;
+      End = Start;
+      Start = buffer;
+    }
+
+    public double Length()
+    {
+      return Vector2.Distance(Start, End);
+    }
+
+    public static bool operator ==(Segment s1, Segment s2)
+    {
+      return s1.Start == s2.Start && s1.End == s2.End;
+    }
+
+    public static bool operator !=(Segment s1, Segment s2)
+    {
+      return !(s1 == s2);
+    }
+
+    public override string ToString()
+    {
+      return Start + "; " + End;
+    }
 
     /**
      * Calculate the intersection point between two line segments.
@@ -213,8 +252,7 @@ namespace Geometry
      * Returns (Infinity, Infinity) if the lines do not intersect or
      * if the lines intersect in every point.
      */
-    public static Vector2 Intersection(Vector2[] line1,
-      Vector2[] line2)
+    public static Vector2 Intersection(Vector2[] line1, Vector2[] line2)
     {
       var x1 = line1[0].X;
       var y1 = line1[0].Y;
@@ -478,8 +516,8 @@ namespace Geometry
   
   public struct Rectangle : IGeometryObject 
   {
-    public readonly Vector2 Min;
-    public readonly Vector2 Max;
+    public Vector2 Min;
+    public Vector2 Max;
 
     public Rectangle(Vector2 min, Vector2 max)
     {
@@ -495,7 +533,7 @@ namespace Geometry
 
     public override string ToString()
     {
-      return Min + " : " + Max;
+      return Min + "; " + Max;
     }
 
     public double Height()
@@ -513,10 +551,15 @@ namespace Geometry
       return Height() * Width();
     }
 
+    public double Diagonal()
+    {
+      return Vector2.Distance(Min, Max);
+    }
+    
     /**
      * Test if a point is inside the bounds.
      */
-    public bool IsInside(Vector2 point, bool excludeBorders = false)
+    public bool Contains(Vector2 point, bool excludeBorders = false)
     {
       if (excludeBorders)
       {
@@ -528,13 +571,11 @@ namespace Geometry
              point.X <= Max.X && point.Y <= Max.Y;
     }
 
-
     /**
      * Calculate the intersection point between the rectangle
      * and a line segment.
      */
-    public static Vector2 Intersection(Rectangle bounds,
-      Segment segment)
+    public Vector2[] Intersection(Segment segment)
     {
       var x1 = segment.Start.X;
       var y1 = segment.Start.Y;
@@ -544,10 +585,10 @@ namespace Geometry
 
       var values = new[]
       {
-        (bounds.Min.X - x1) / (x2 - x1),
-        (bounds.Min.Y - y1) / (y2 - y1),
-        (bounds.Max.X - x1) / (x2 - x1),
-        (bounds.Max.Y - y1) / (y2 - y1)
+        (Min.X - x1) / (x2 - x1),
+        (Min.Y - y1) / (y2 - y1),
+        (Max.X - x1) / (x2 - x1),
+        (Max.Y - y1) / (y2 - y1)
       };
 
       var λ = values[0];
@@ -558,16 +599,13 @@ namespace Geometry
         if (λ < 0) λ = value;
       }
 
-      if (λ < 0)
-        throw new ArgumentException(
-          "Segment is outside of borders");
+      if (λ < 0) return new Vector2[0];
 
       var x = x1 + λ * (x2 - x1);
       var y = y1 + λ * (y2 - y1);
 
-      return new Vector2(x, y);
+      return new []{new Vector2(x, y)};
     }
-
 
     /**
      * Test if a point lays on an rectangle.
@@ -580,7 +618,6 @@ namespace Geometry
              bounds.Max.Y.Equals(point.X);
     }
 
-
     public Polygon ToPolygon()
     {
       return new Polygon
@@ -588,79 +625,20 @@ namespace Geometry
         Min, new Vector2(Max.X, Min.Y), Max, new Vector2(Min.X, Max.Y)
       };
     }
-
-
-    public static Vector2 ClockwiseNext(Vector2 i, Rectangle b)
-    {
-      if (Equals(i.X, b.Min.X)) return new Vector2(b.Min.X, b.Max.Y);
-      if (Equals(i.X, b.Max.X)) return new Vector2(b.Max.X, b.Min.Y);
-      if (Equals(i.Y, b.Min.Y)) return new Vector2(b.Min.X, b.Min.Y);
-      if (Equals(i.Y, b.Max.Y)) return new Vector2(b.Max.X, b.Max.Y);
-
-      throw new ArgumentException(
-        "Vector does not intersect with Bounds.");
-    }
-
-
-//    public static Polygon OuterArea(Segment a, Segment b, 
-//        Bounds bounds)
-//    {
-//        var i1 = Bounds.Intersection(bounds, a);
-//        var i2 = Bounds.Intersection(bounds, b);
-//
-//        var nextI1 = ClockwiseNext(i1, bounds);
-//        var nextI2 = ClockwiseNext(i2, bounds);
-//
-//        var result = new Polygon{b.Start};
-//
-//        if (a.Start != b.Start) result.Add(a.Start);
-//		
-//        result.Add(i1);
-//		
-//        if (nextI1 == nextI2)
-//        {
-//            result.Add(i2);
-//            result.Add(a.Start);
-//            return result;
-//        }
-//
-//        var totalArea = new Polygon 
-//        {
-//            new Vector2(bounds.Min.X, bounds.Max.Y),
-//            bounds.Max,
-//            new Vector2(bounds.Max.X, bounds.Min.Y),
-//            bounds.Min
-//        };
-//		
-//        var start = totalArea.FindIndex(vertex => vertex == nextI1);
-//
-//        for (var i = start; i < totalArea.Count * 2; 
-//            i = (i + 1) % totalArea.Count)
-//        {
-//            if (totalArea[i] != nextI2) result.Add(totalArea[i]);
-//            else break;
-//        }
-//		
-//        result.Add(i2);
-//
-//        return result;
-//    }
   }
 
 
-  public struct Circle : IGeometryObject 
+  public struct Circle : IGeometryObject
   {
-    public readonly Vector2 Position;
+    public Vector2 Position;
     public readonly double Radius;
 
-    public Circle(double x, double y, double radius) : this()
-    {
-      Position = new Vector2(x, y);
-      Radius = radius;
-    }
+    public Circle(double x, double y, double radius) : 
+      this(new Vector2(x, y), radius) {}
 
     public Circle(Vector2 position, double radius)
     {
+      if (radius <= 0) throw new ArgumentException("Radius must be greater 0");
       Position = position;
       Radius = radius;
     }
@@ -671,23 +649,55 @@ namespace Geometry
     }
 
     /// <summary>
-    /// Calculate the tangents of a point and a circle.
+    /// Check if a point lies on the border of the circle. 
     /// </summary>
-    /// <param name="point"></param>
-    /// <param name="circle"></param>
-    /// <returns>An array of two 2-dimensional vectors.</returns>
-    public static Segment[] Tangents(Vector2 point, Circle circle)
+    /// <param name="p"></param>
+    /// <returns></returns>
+    public bool OnBorder(Vector2 p)
     {
-      var x1 = circle.Position.X;
-      var y1 = circle.Position.Y;
-      var r1 = circle.Radius;
-
-      var tangent1 = OuterTangent(x1, y1, r1, point.X, point.Y, 0);
-      var tangent2 = OuterTangent(point.X, point.Y, 0, x1, y1, r1);
-
-      return new[] {tangent1, new Segment(tangent2.End, tangent2.Start)};
+      return Math.Abs(Vector2.Distance(p, Position) - Radius) < Defs.Precision;
     }
 
+    /// <summary>
+    /// Check if a point lies inside the circle. This does not include the
+    /// border of the circle.
+    /// </summary>
+    /// <param name="p"></param>
+    /// <returns></returns>
+    public bool Contains(Vector2 p)
+    {
+      return Vector2.Distance(p, Position) < Radius - Defs.Precision;
+    }
+
+    /// <summary>
+    /// Calculate the tangents of a point and a circle.
+    /// </summary>
+    /// <remarks>
+    /// For more information see:
+    /// https://en.wikipedia.org/wiki/Tangent_lines_to_circles
+    /// </remarks>
+    /// <param name="p"></param>
+    /// <param name="c"></param>
+    /// <returns>
+    /// An array of two segments or an empty array if the point lies inside
+    /// the circle.
+    /// </returns>
+    public static Segment[] ExternalTangents(Vector2 p, Circle c)
+    {
+      if (c.OnBorder(p))
+      {
+        return new[] {new Segment(p, p), new Segment(p, p)};
+      }
+      if (c.Contains(p)) return new Segment[]{};
+
+      var tangent1 = ExternalTangent(c.Position.X, c.Position.Y, 
+        c.Radius, p.X, p.Y, 0);
+      var tangent2 = ExternalTangent(p.X, p.Y, 0, 
+        c.Position.X, c.Position.Y, c.Radius);
+      tangent1.Inverse();
+      
+      return new[] {tangent1, tangent2};
+    }
 
     /// <summary>
     /// Calculate one outer tangent of two circles given by their position and
@@ -700,17 +710,16 @@ namespace Geometry
     /// <param name="y2"></param>
     /// <param name="r2"></param>
     /// <returns></returns>
-    public static Segment OuterTangent(double x1, double y1, double r1,
+    private static Segment ExternalTangent(double x1, double y1, double r1,
       double x2, double y2, double r2)
     {
       var d = Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2));
       var α = Math.PI / 2  
-              + Math.Atan2(y2 - y1, x2 - x1) 
-              - Math.Asin((r2 - r1) / d);
+              + Math.Atan2(y2 - y1, x2 - x1) - Math.Asin((r2 - r1) / d);
 
       return new Segment(
-        new Vector2(x1 + r1 * Math.Cos(α), y1 + r1 * Math.Sin(α)), 
-        new Vector2(x2 + r2 * Math.Cos(α), y2 + r2 * Math.Sin(α)));
+        new Vector2(x1 - r1 * Math.Cos(α), y1 - r1 * Math.Sin(α)), 
+        new Vector2(x2 - r2 * Math.Cos(α), y2 - r2 * Math.Sin(α)));
     }
 
 
@@ -743,9 +752,9 @@ namespace Geometry
   }
 
 
-  public struct Arc : IGeometryObject 
+  public class Arc : IGeometryObject 
   {
-    public readonly Vector2 Position;
+    public Vector2 Position;
     public readonly double Radius;
     public readonly double Angle;
     public readonly double Rotation;
