@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cairo;
 using Gdk;
+using Geometry;
 using GLib;
 using LibOptimization.BenchmarkFunction;
 using LibOptimization.Optimization;
@@ -12,6 +13,8 @@ using Gtk;
 using Shadows;
 using Action = System.Action;
 using Application = Gtk.Application;
+using Environment = System.Environment;
+using Key = Gdk.Key;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
 
@@ -39,8 +42,8 @@ namespace sensor_positioning
     public SensorAreaPlotter()
     {
       Init();
-      HeightRequest = (int)(_objective.Raw.Env.Region.Max.Y * Scale);
-      WidthRequest = (int)(_objective.Raw.Env.Region.Max.X * Scale);
+      HeightRequest = (int)(_objective.Raw.Env.Bounds.Max.Y * Scale);
+      WidthRequest = (int)(_objective.Raw.Env.Bounds.Max.X * Scale);
     }
 
     public void Init()
@@ -84,8 +87,8 @@ namespace sensor_positioning
 
     private void DrawCoordinateSystem(Context cr)
     {
-      var width = _objective.Raw.Env.Region.Max.X * Scale;
-      var height = _objective.Raw.Env.Region.Max.Y * Scale;
+      var width = _objective.Raw.Env.Bounds.Max.X * Scale;
+      var height = _objective.Raw.Env.Bounds.Max.Y * Scale;
       
       cr.SetSourceRGB(.8, .8, .8);
       cr.Rectangle(0, 0, width, height);
@@ -244,8 +247,7 @@ namespace sensor_positioning
         "font-size: 22px;" +
         "caret-color: #939797;" +
         "}");
-      StyleContext.AddProviderForScreen(Gdk.Screen.Default,
-        provider, 800);
+      StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
     }
 
     private void SetupControls()
@@ -295,6 +297,39 @@ namespace sensor_positioning
       _controls.Margin = 5;
     }
   }
+
+  
+//  internal class PsoOptimizer : absOptimization
+//  {
+//    private Swarm _swarm;
+//
+//    public PsoOptimizer(absObjectiveFunction objective)
+//    {
+//      ObjectiveFunction = objective;
+//    }
+//
+//    public override void Init()
+//    {
+//      var obj = ((SspFct) ObjectiveFunction).Raw;
+//      _swarm = Pso.SwarmSpso2011(
+//        new SearchSpace(obj.Intervals()), obj.FitnessFct);
+//    }
+//
+//    public override bool DoIteration(int iterations = 0)
+//    {
+//      _swarm.IterateMaxIterations(iterations);
+//      return true;
+//    }
+//
+//    public override bool IsRecentError()
+//    {
+//      return false;
+//    }
+//
+//    public override clsPoint Result { get; }
+//    public override List<clsPoint> Results { get; }
+//    public override int Iteration { get; set; }
+//  }
   
   
   internal class SspFct : absObjectiveFunction
@@ -328,7 +363,7 @@ namespace sensor_positioning
       }
       catch (Exception)
       {
-        return Double.PositiveInfinity;
+        return double.PositiveInfinity;
       }
     }
 
@@ -346,13 +381,14 @@ namespace sensor_positioning
   
   public static class SensorPositioningTest
   {
-    public static void Main()
+    public static void TestAll()
     {
 //      TestWithExternalPso();
-//      TestWithPso();
-//      TestWithSimplex();
+//      TestWithPso();    
+//      TestWithPsoStepByStep();
+      TestWithSimplex();
 //      TestWithAdaptiveDifferentialEvolution();
-      TestGraphical();
+//      TestGraphical();
     }
 
     private static void TestGraphical()
@@ -364,12 +400,16 @@ namespace sensor_positioning
 
     private static void TestWithSimplex()
     {
-//      var nm = new NelderMeadSimplex(10, 100);
-      var objective = new clsBenchSphere(10);
-      var bl = new clsOptNelderMead(objective);
-      bl.Init();
-      bl.DoIteration(100);
-      Console.WriteLine(bl.Result.Eval);
+      var objective = new SspFct(2, 5);
+      var opt = new clsOptNelderMead(objective);
+      opt.Init();
+      clsUtil.DebugValue(opt);
+      while (opt.DoIteration(10) == false)
+      {
+        if (opt.Result.Eval < 5) break;
+        clsUtil.DebugValue(opt, ai_isOutValue: false);
+      }
+      clsUtil.DebugValue(opt);
     }
 
     private static void TestWithAdaptiveDifferentialEvolution()
@@ -397,6 +437,8 @@ namespace sensor_positioning
         if (opt.Result.Eval < 5) break;
         clsUtil.DebugValue(opt, ai_isOutValue: false);
       }
+      Console.WriteLine("Best: " + objective.Raw.Normalize(opt.Result.Eval) + 
+                        "%");
       clsUtil.DebugValue(opt);
     }
     
@@ -414,7 +456,7 @@ namespace sensor_positioning
         Console.Write("- " + ob.Position + " : " + ob.Size);
       }
       Console.WriteLine();
-      Console.WriteLine("Field: " + objective.Raw.Env.Region);
+      Console.WriteLine("Field: " + objective.Raw.Env.Bounds);
       
       Console.WriteLine("\n--- PSO setup");
       clsUtil.DebugValue(opt);
@@ -424,9 +466,55 @@ namespace sensor_positioning
       clsUtil.DebugValue(opt);
     }
 
+    private static void TestWithPsoStepByStep()
+    {
+      StaticSensorPositioning prob = null;
+      Swarm pso = null;
+      
+      var plotter = new Plotter{XScale = 20, YScale = 20, 
+        XOffset = -100, YOffset = 60};
+
+      var plot = new Action(() =>
+      {
+        Console.WriteLine("Iteration: " + pso.Iteration + 
+                          ", Best: " + prob.Normalize(pso.GlobalBestValue) + 
+                          "% Shadows");
+        plotter.Clear();
+        SensorPositioningProblem.PlaceFromVector(pso.GlobalBest, prob.TeamA);
+        plotter.Plot(prob.Env.Bounds);
+        plotter.Plot(Sensor.Shadows(prob.TeamA, prob.Env));
+        plotter.Plot(prob.TeamA.Select(o => 
+          (IGeometryObject)new Circle(o.Position, o.Size)));
+        plotter.Plot(prob.TeamB.Select(o => 
+          (IGeometryObject)new Circle(o.Position, o.Size)));
+        pso.IterateOnce();
+      });
+      
+      var reset = new Action(() =>
+      {
+        prob = new StaticSensorPositioning(10, 10);
+        pso = Pso.SwarmSpso2011(
+          new SearchSpace(prob.Intervals()),
+          prob.FitnessFct);
+        
+        Console.WriteLine("Reset");
+        pso.Initialize();
+        plot();
+      });
+      
+      plotter.Window.KeyPressEvent += (o, args) =>
+      {
+        if (args.Event.Key == Key.n) plot();
+        else if (args.Event.Key == Key.r) reset();
+      };
+      
+      reset();
+      plotter.Plot();
+    }
+    
     private static void TestWithPso()
     {
-      var prob = new StaticSensorPositioning(1, 0);
+      var prob = new StaticSensorPositioning(3, 5);
       var pso = Pso.SwarmSpso2011(
         new SearchSpace(prob.Intervals()),
         prob.FitnessFct);
@@ -434,15 +522,17 @@ namespace sensor_positioning
       Console.WriteLine("--- Setup");
       Console.WriteLine("Sensors: " + prob.TeamA.Count);
       Console.WriteLine("Obstacles: " + prob.TeamB.Count);
-      Console.WriteLine("Field: " + prob.Env.Region);
+      Console.WriteLine("Field: " + prob.Env.Bounds);
 
-      Console.WriteLine("\n--- Obstacles");
-      foreach (var ob in prob.TeamB)
+      if (prob.TeamB.Count > 0)
       {
-        Console.Write(ob.Position + " : " + ob.Size);
+        Console.WriteLine("\n--- Obstacles");
+        foreach (var ob in prob.TeamB)
+        {
+          Console.Write(ob.Position + " : " + ob.Size);
+        }
+        Console.WriteLine();
       }
-
-      Console.WriteLine();
 
       Console.WriteLine("\n--- Iterations");
       pso.Initialize();
@@ -463,14 +553,6 @@ namespace sensor_positioning
           + pso.GlobalBestValue + ", Normal: "
           + prob.Normalize(pso.GlobalBestValue) + "%");
       }
-
-      Console.WriteLine("\n--- Obstacle Positions");
-      foreach (var d in prob.TeamB)
-      {
-        Console.Write(d.Position + " : " + d.Size);
-      }
-
-      Console.WriteLine();
 
       Console.WriteLine("\n--- Best Found");
       foreach (var d in pso.GlobalBest) Console.Write(d + ", ");
