@@ -4,7 +4,6 @@ using Cairo;
 using Geometry;
 using GLib;
 using Gtk;
-using ParticleSwarmOptimization;
 using Application = Gtk.Application;
 using Key = Gdk.Key;
 using Rectangle = Geometry.Rectangle;
@@ -19,7 +18,15 @@ namespace sensor_positioning
 //      TestGeometryModule();
 //      PsoTest.TestAll();
 //      TestShadowModule();
-      SensorPositioningTest.TestAll();
+//      SensorPositioningTest.TestAll();
+      TestRunCharlie();
+    }
+
+    public static void TestRunCharlie()
+    {
+      Application.Init();
+      var simulation = new RunCharlie();
+      Application.Run();
     }
     
     public static void TestGeometryModule()

@@ -82,8 +82,10 @@
     <Compile Include="src\Geometry.cs" />
     <Compile Include="src\Geometry.test.cs" />
     <Compile Include="src\OptimizationFcts.cs" />
+    <Compile Include="src\PcgRandom.cs" />
     <Compile Include="src\Pso.cs" />
     <Compile Include="src\Pso.test.cs" />
+    <Compile Include="src\RunCharlie.cs" />
     <Compile Include="src\SensorPositioning.cs" />
     <Compile Include="src\SensorPositioning.test.cs" />
     <Compile Include="src\Shadows.cs" />
