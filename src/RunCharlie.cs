@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Cairo;
 using Gdk;
 using Geometry;
 using GLib;
 using Gtk;
 using Application = Gtk.Application;
+using Task = System.Threading.Tasks.Task;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
@@ -33,6 +35,7 @@ namespace sensor_positioning
   internal class Charlie : RenderObject, GameObject
   {
     public double Radius = 10;
+    private bool _grow = true;
     
     public override void Render(Context cr)
     {
@@ -44,7 +47,9 @@ namespace sensor_positioning
 
     public void Update(double deltaTime)
     {
-      Radius++;
+      _grow = Radius > 100 || Radius < 10 ? !_grow : _grow;
+      if (_grow) Radius++;
+      else Radius--;
     }
   }
 
@@ -148,10 +153,7 @@ namespace sensor_positioning
   }
 
 
-  /// <summary>
-  /// 
-  /// </summary>
-  internal class SimulationWidget : DrawingArea
+  internal class Deprecated
   {
     private readonly List<RenderObject> _renderObjects =
       new List<RenderObject>();
@@ -159,6 +161,8 @@ namespace sensor_positioning
     private readonly ConcurrentDictionary<string, GameObject> _logicObjects =
       new ConcurrentDictionary<string, GameObject>();
 
+    public int FieldWidth = 400;
+    public int FieldHeight = 400;
     public double MinObstSize = 5;
     public double MaxObstSize = 40;
     public int ObstCount = 5;
@@ -166,16 +170,9 @@ namespace sensor_positioning
     public double PlayerSize = 10;
     public double EnemySize = 8;
     
-    public int FieldWidth = 400;
-    public int FieldHeight = 400;
-    private bool _started;
-    private Thread _logicThread;
-
     /// <summary> Initialize the simulation </summary>
     public void Init()
     {
-      if (_started) Stop();
-      
       _renderObjects.Clear();
       
       // Create field
@@ -214,79 +211,50 @@ namespace sensor_positioning
       };
       _renderObjects.Add(charlie);
       _logicObjects.TryAdd("character", charlie);
-      
-      QueueDraw();
-    }
-
-    private void Update()
-    {
-      while (_started)
-      {
-        foreach (var key in _logicObjects.Keys)
-        {
-          if (_logicObjects.TryGetValue(key, out var obj))
-          {
-            obj.Update(1);
-          }
-        }
-        QueueDraw();
-        Thread.Sleep(50);
-      }
-    }
-    
-    /// <summary> Start the simulation </summary>
-    public void Start()
-    {
-      _started = true;
-      _logicThread = new Thread(Update);
-      _logicThread.Start();
-    }
-
-    /// <summary> Stop the simulation </summary>
-    public void Stop()
-    {
-      _started = false;
-      _logicThread?.Abort();
-    }
-
-    protected override bool OnDrawn(Context cr)
-    {
-      foreach (var element in _renderObjects) element.Render(cr);
-      return true;
     }
   }
 
+  public class Simulation
+  {
+    public readonly ConcurrentDictionary<string, object> Objects = 
+      new ConcurrentDictionary<string, object>();
+    public Action<object> Init = config => {};
+    public Action<long> Update = dt => {};
+    public Action<Context> Render = ct => {};
+    public Action<object> Log = fw => {};
+    public Thread LogicThread;
+    public bool Started;
+    public string Title = "";
+    public string Description = "";
+  }
+  
   /// <summary> RunCharlie is a simulation framework. </summary>
   public class RunCharlie : Application
   {
-    public string Title = "";
-    public string Description = "";
-    public Action<object> Init = config => {};
-    public Action<double> Update = dt => {}; 
-    public Action<Context> Render = ct => {}; 
-    public Action<object> Log = fw => {};
-    public ConcurrentDictionary<string, object> Objects = 
-      new ConcurrentDictionary<string, object>();
-    
+    private const string AppId = "com.jakobrieke.runcharlie";
+    private Simulation _sim;
+    private DrawingArea _canvas;
     private Button _actionButton;
-    private SimulationWidget _simulationWidget;
     
-    public RunCharlie() : base(
-      "com.jakobrieke.runcharlierun",
-      ApplicationFlags.None)
+    public RunCharlie(Simulation sim) : base(AppId, ApplicationFlags.None)
     {
+      _sim = sim;
+      
       SetupStyle();
 
       var mainPage = CreateMain();
       var configPage = CreateConfig();
 
+      Init();
+      
       var title = new Label("Run Charlie") {Name = "title", Xalign = 0};
       _actionButton = new Button("Start") {Name = "actionBtn"};
 
       void Stop(object sender, EventArgs args)
       {
-        _simulationWidget.Stop();
         Console.WriteLine("Stop");
+        
+        this.Stop();
         _actionButton.Label = "Start";
         _actionButton.Clicked -= Stop;
         _actionButton.Clicked += Start;
@@ -294,23 +262,24 @@ namespace sensor_positioning
 
       void Start(object sender, EventArgs args)
       {
-        _simulationWidget.Start();
         Console.WriteLine("Start");
+        
+        this.Start();
         _actionButton.Label = "Stop";
         _actionButton.Clicked -= Start;
         _actionButton.Clicked += Stop;
       }
       
       _actionButton.Clicked += Start;
-
       
-      var page = new VBox (false, 0) {HeightRequest = 500};
-      page.Add(mainPage);
-      page.Add(configPage);
+//      var page = new VBox (false, 0) {HeightRequest = 500};
+//      page.Add(mainPage);
+//      page.Add(configPage);
       
       var root = new VBox (false, 10) {Margin = 10, Name = "root"};
       root.Add(title);
-      root.Add(page);
+      root.Add(mainPage);
+      root.Add(configPage);
       root.Add(_actionButton);
 
       var window = new Window(WindowType.Toplevel)
@@ -324,13 +293,59 @@ namespace sensor_positioning
       window.Resizable = false;
       window.ShowAll();
     }
+    
+    private new void Init()
+    {
+      if (_sim.Started) Stop();
+      // parse JSON config here
+      _sim.Init(null);
+      _canvas.QueueDraw();
+    }
 
+    private void Start()
+    {
+      _sim.Started = true;
+      _sim.LogicThread = new Thread(Update);
+      _sim.LogicThread.Start();
+    }
+    
+    private void Stop()
+    {
+      _sim.Started = false;
+      _sim.LogicThread?.Abort();
+    }
+    
+    private void Update()
+    {
+      var timer = new Stopwatch();
+      timer.Start();
+      while (_sim.Started)
+      {
+        Console.WriteLine(timer.ElapsedMilliseconds);
+
+        try
+        {
+          _sim.Update(timer.ElapsedMilliseconds);
+          timer.Restart();
+        }
+        catch (Exception e) { Console.WriteLine(e); }
+
+        Task.Factory.StartNew(() => _canvas.QueueDraw());
+        Thread.Sleep(50);
+      }
+      timer.Stop();
+    }
+    
     private Box CreateMain()
     {
-      _simulationWidget = new SimulationWidget();
-      _simulationWidget.SetSizeRequest(400, 400);
-      _simulationWidget.Init();
-
+      _canvas = new DrawingArea();
+      _canvas.Drawn += (o, args) =>
+      {
+        try { _sim.Render(args.Cr); }
+        catch (Exception e) { Console.WriteLine(e); }
+      };
+      _canvas.SetSizeRequest(400, 400);
+      
       var configTitle = new Label("Configuration")
       {
         Xalign = 0, Valign = Align.Start
@@ -338,7 +353,7 @@ namespace sensor_positioning
 
       var mainPage = new VBox (false, 10);
       mainPage.PackStart(new Alignment(0, 1, 0, 0), false, false, 0);
-      mainPage.PackStart(_simulationWidget, false, false, 0);
+      mainPage.PackStart(_canvas, false, false, 0);
       mainPage.PackStart(configTitle, false, false, 0);
 
       return mainPage;
@@ -407,7 +422,29 @@ namespace sensor_positioning
     
     public static RunCharlie Example()
     {
-      return null;
+      var sim = new Simulation();
+      sim.Init = o =>
+      {
+        var charlie = new Charlie {X = 200, Y = 200};
+        sim.Objects.Clear();
+        sim.Objects.TryAdd("charlie", charlie);
+      };
+      sim.Render = ctx =>
+      {
+        if (sim.Objects.TryGetValue("charlie", out var obj))
+        {
+          ((Charlie) obj).Render(ctx);
+        }
+      };
+      sim.Update = delta =>
+      {
+        if (sim.Objects.TryGetValue("charlie", out var obj))
+        {
+          ((Charlie) obj).Update(delta);
+        }
+      };
+      var app = new RunCharlie(sim);
+      return app;
     }
   }
 }

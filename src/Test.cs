@@ -25,7 +25,7 @@ namespace sensor_positioning
     public static void TestRunCharlie()
     {
       Application.Init();
-      var simulation = new RunCharlie();
+      RunCharlie.Example();
       Application.Run();
     }
     
