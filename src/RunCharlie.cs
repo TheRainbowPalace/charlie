@@ -2,13 +2,15 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Timers;
 using Cairo;
 using Gdk;
 using Geometry;
-using GLib;
 using Gtk;
 using Application = Gtk.Application;
-using Task = System.Threading.Tasks.Task;
+using Color = Gdk.Color;
+using Key = Gtk.Key;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
@@ -222,97 +224,119 @@ namespace sensor_positioning
     public Action<long> Update = dt => {};
     public Action<Context> Render = ct => {};
     public Action<object> Log = fw => {};
-    public Thread LogicThread;
-    public bool Started;
     public string Title = "";
     public string Description = "";
+    public bool Started;
+    public int Iteration = 0;
   }
   
   /// <summary> RunCharlie is a simulation framework. </summary>
-  public class RunCharlie : Application
+  public class RunCharlie
   {
-    private const string AppId = "com.jakobrieke.runcharlie";
     private Simulation _sim;
     private DrawingArea _canvas;
-    private Button _actionButton;
+    private Label _iterationLbl;
+    private Thread _logicThread;
+    private TextBuffer _configBuffer;
     
-    public RunCharlie(Simulation sim) : base(AppId, ApplicationFlags.None)
+    public RunCharlie(Simulation sim)
     {
       _sim = sim;
       
       SetupStyle();
 
-      var mainPage = CreateMain();
-      var configPage = CreateConfig();
-
+      var title = new VBox(false, 5)
+      {
+        new Label("Single dot") {Name = "title", Xalign = 0},
+        new Label
+        {
+          Text = 
+            "Single dot is an example simulation to preview and test the " +
+            "RunCharlie software. It presents you with a single red dot that " +
+            "increases and decreases in size.",
+          Wrap = true, 
+          Halign = Align.Start, 
+          Xalign = 0
+        }
+      };
+      title.MarginTop = 15;
+      var root = new VBox (false, 15)
+      {
+        Name = "root",
+        MarginStart = 20, 
+        MarginEnd = 20
+      };
+      root.PackStart(title, false, false, 0);
+      root.PackStart(CreateModuleControl(), false, false, 0);
+      root.PackStart(CreateCanvas(), false, false, 0);
+      root.PackStart(CreateControls(), false, false, 0);
+      root.PackStart(CreateConfig(), true, true, 0);
+      
       Init();
-      
-      var title = new Label("Run Charlie") {Name = "title", Xalign = 0};
-      _actionButton = new Button("Start") {Name = "actionBtn"};
-
-      void Stop(object sender, EventArgs args)
-      {
-        Console.WriteLine("Stop");
-        
-        this.Stop();
-        _actionButton.Label = "Start";
-        _actionButton.Clicked -= Stop;
-        _actionButton.Clicked += Start;
-      }
-
-      void Start(object sender, EventArgs args)
-      {
-        Console.WriteLine("Start");
-        
-        this.Start();
-        _actionButton.Label = "Stop";
-        _actionButton.Clicked -= Start;
-        _actionButton.Clicked += Stop;
-      }
-      
-      _actionButton.Clicked += Start;
-      
-//      var page = new VBox (false, 0) {HeightRequest = 500};
-//      page.Add(mainPage);
-//      page.Add(configPage);
-      
-      var root = new VBox (false, 10) {Margin = 10, Name = "root"};
-      root.Add(title);
-      root.Add(mainPage);
-      root.Add(configPage);
-      root.Add(_actionButton);
 
       var window = new Window(WindowType.Toplevel)
       {
-        WindowPosition = WindowPosition.Center,
-        WidthRequest = 420,
-        Title = ""
+        WidthRequest = 440,
+        Title = "",
+        Role = "runcharlie",
+        Resizable = false,
+        Child = new ScrolledWindow 
+        {
+          KineticScrolling = true,
+          VscrollbarPolicy = PolicyType.External,
+          MinContentHeight = 600,
+          MaxContentWidth = 400,
+          Child = root
+        }
       };
-      window.Add(root);
-      window.KeyPressEvent += (o, args) => Console.WriteLine(args.Event.Key);
-      window.Resizable = false;
+      window.Destroyed += (sender, args) => Application.Quit();
+      window.Move(100, 100);
       window.ShowAll();
     }
-    
-    private new void Init()
+
+    // Todo: Implement method
+    private void ParseConfig(string config)
     {
-      if (_sim.Started) Stop();
-      // parse JSON config here
+      var lines = config.Split(
+        new[] {System.Environment.NewLine},
+        StringSplitOptions.None);
+      var i = 0;
+      foreach (var line in lines)
+      {
+        i++;
+        if (line.StartsWith("#")) Console.WriteLine("Comment: " + i);
+//        else
+//        {
+//          var index = line.IndexOf('=');
+//          if (index < 0) Console.WriteLine("Invalid line: " + i);
+//          else Console.WriteLine(
+//            "Key: " + line.Substring(0, index) + 
+//            ", Value: " + line.Substring(index + 1, line.Length - index + 1));
+//        }
+      }
+    }
+    
+    private void Init()
+    {
+      // parse config buffer here
+//      ParseConfig(_configBuffer.Text);
+      
       _sim.Init(null);
-      _canvas.QueueDraw();
+      _sim.Iteration = 0;
+      AfterUpdate();
     }
 
     private void Start()
     {
       _sim.Started = true;
-      _sim.LogicThread = new Thread(Update);
-      _sim.LogicThread.Start();
+      _logicThread = new Thread(Update);
+      _logicThread.Start();
     }
     
     private void Stop()
     {
       _sim.Started = false;
-      _sim.LogicThread?.Abort();
+//      _sim.LogicThread?.Abort();
     }
     
     private void Update()
@@ -321,8 +345,6 @@ namespace sensor_positioning
       timer.Start();
       while (_sim.Started)
       {
-        Console.WriteLine(timer.ElapsedMilliseconds);
-
         try
         {
           _sim.Update(timer.ElapsedMilliseconds);
@@ -330,111 +352,214 @@ namespace sensor_positioning
         }
         catch (Exception e) { Console.WriteLine(e); }
 
-        Task.Factory.StartNew(() => _canvas.QueueDraw());
-        Thread.Sleep(50);
+        _sim.Iteration++;
+        Application.Invoke((sender, args) => AfterUpdate());
       }
       timer.Stop();
+      _logicThread = null;
+    }
+
+    private void AfterUpdate()
+    {
+      _canvas.QueueDraw();
+      _iterationLbl.Text = "i = " + _sim.Iteration;
+    }
+
+    private Box CreateModuleControl()
+    {
+      var pathEntry = new Entry("/home")
+      {
+        PlaceholderText = "/path/to/your/module/..."
+      };
+      var loadBtn = new Button("Load");
+      var result = new HBox(false, 15);
+      result.PackStart(pathEntry, true, true, 0);
+      result.PackStart(loadBtn, false, false, 0);
+      return result;
     }
     
-    private Box CreateMain()
+    private Box CreateControls()
     {
-      _canvas = new DrawingArea();
+      var startBtn = new Button("Start");
+      startBtn.Clicked += Start;
+
+      void Stop(object sender, EventArgs args)
+      {
+        Console.WriteLine("Stop");
+        
+        this.Stop();
+        startBtn.Label = "Start";
+        startBtn.Clicked -= Stop;
+        startBtn.Clicked += Start;
+      }
+
+      void Start(object sender, EventArgs args)
+      {
+        Console.WriteLine("Start");
+        
+        this.Start();
+        startBtn.Label = "Stop";
+        startBtn.Clicked -= Start;
+        startBtn.Clicked += Stop;
+      }
+      
+      var initBtn = new Button("Init");
+      initBtn.Clicked += (sender, args) =>
+      {
+        if (_sim.Started) Stop(null, null);
+        var t = new Timer(20);
+        t.Elapsed += (o, eventArgs) =>
+        {
+          if (_logicThread != null)
+          {
+            Console.WriteLine("Waiting for update thread to finish.");
+            return;
+          }
+          Init();
+          t.Enabled = false;
+        };
+        t.Enabled = true;
+      };
+
+      _iterationLbl = new Label("i = " + _sim.Iteration) {Halign = Align.End};
+
+      var result = new HBox(false, 10);
+      result.PackStart(initBtn, false, false, 0);
+      result.PackStart(startBtn, false, false, 0);
+      result.PackStart(_iterationLbl, true, true, 0);
+      result.HeightRequest = 10;
+      return result;
+    }
+    
+    private Box CreateCanvas()
+    {
+      var renderTitle = new Label("Rendering") {Halign = Align.Start};
+      
+      _canvas = new DrawingArea {Name = "canvas"};
       _canvas.Drawn += (o, args) =>
       {
         try { _sim.Render(args.Cr); }
         catch (Exception e) { Console.WriteLine(e); }
       };
       _canvas.SetSizeRequest(400, 400);
-      
-      var configTitle = new Label("Configuration")
-      {
-        Xalign = 0, Valign = Align.Start
-      };
 
-      var mainPage = new VBox (false, 10);
-      mainPage.PackStart(new Alignment(0, 1, 0, 0), false, false, 0);
-      mainPage.PackStart(_canvas, false, false, 0);
-      mainPage.PackStart(configTitle, false, false, 0);
-
-      return mainPage;
+      var result = new VBox(false, 7);
+      result.PackStart(renderTitle, false, false, 0);
+      result.PackStart(_canvas, false, false, 0);
+      return result;
     }
 
     private Box CreateConfig()
     {
-      // Todo: Fix cursor not visible (find css property for cursor color) 
-      
-      var buffer = new TextBuffer(new TextTagTable())
+      _configBuffer = new TextBuffer(new TextTagTable())
       {
-        Text = "{\n  \"MinObstSize\": 10\n}"
+        Text = "charlieSize: 12" +
+               "\nminObstSize: 10" +
+               "\nmaxObstSize: 50" +
+               "\nsizeIncrease: 1"
       };
-      var entry = new TextView(buffer)
-      {
-        HeightRequest = 400, WidthRequest = 400, Name = "configEntry"
-      };
-      entry.Indent = 3;
-      var scrollCont = new ScrolledWindow {entry};
 
-      var configPage = new VBox(false, 10) {scrollCont};
-      return configPage;
+      var title = new Label("Configuration")
+      {
+        Xalign = 0, Valign = Align.Start
+      };
+      var textView = new TextView(_configBuffer)
+      {
+        Monospace = true,
+        WidthRequest = 400,
+        Name = "configEntry",
+        Indent = 3,
+        WrapMode = WrapMode.Char
+      };
+//      textView.KeyPressEvent += (o, args) =>
+//      {
+//        Console.WriteLine(args.Event.Key);
+//        if (args.Event.Key == Gdk.Key.rightarrow &&
+//            args.Event.State == ModifierType.MetaMask)
+//        {
+//          Console.WriteLine("go to right");
+//        }
+//      };
+      var result = new VBox(false, 7);
+      result.PackStart(title, false, false, 0);
+      result.PackStart(textView, true, true, 0);
+      return result;
     }
 
     private void SetupStyle()
     {
       var provider = new CssProvider();
       provider.LoadFromData(@"
-        window {background-color: #333333;}
-        #title {
-          font-size: xx-large;
-          font-weight: 100;
-        }
-        label {
-          color: #C4C4C4;
-          font-family: Andale Mono, Monospace;
-        }
-        #actionBtn {
-          font-size: 22px;
-          color: #939797;
-          background: #010101;
-          padding: 5px 5px;
-          border: none;
-          text-shadow: none;
-          box-shadow: none;
-          border-radius: 10px;
-        }
-        #actionBtn:hover {background-color: #1A1B1B;}
-        #actionBtn:active {background-color: #595959;}
-        #actionBtn:disabled {border: none;}
-        
-        textview {
-          background: transparent;
-        }
-        
-        textview text {
-          background: transparent;
-          color: #C4C4C4;
-        }
-        textview text selection {
-          background: #C4484B;
-        }
+window {
+  background-color: #333333;
+  font-family: Andale Mono;
+}
+
+#title {
+  font-size: xx-large;
+  font-weight: 100;
+}
+
+label {
+  color: #C4C4C4;
+  font-family: Andale Mono, Monospace;
+}
+
+button {
+  font-size: 22px;
+  color: #939797;
+  background: #010101;
+  padding: 2px 20px;
+  border: none;
+  text-shadow: none;
+  box-shadow: none;
+  border-radius: 30px;
+}
+button:hover {background-color: #1A1B1B;}
+button:active {background-color: #595959;}
+button:disabled {border: none;}
+
+entry {
+  background: #010101;
+  color: #939797;
+  caret-color: white;
+  border: none;
+  border-radius: 0;
+  padding-left: 15px;
+}
+entry:selected {outline: none;}
+
+textview {
+  background: #C4C4C4;
+  padding: 10px 5px 10px 5px;
+  caret-color: black;
+}
+textview text {
+  background: transparent;
+  color: #1A1B1B;
+}
+textview text selection {
+  background: #C4484B;
+}
        ");
       StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
     }
     
-    public static RunCharlie Example()
+    public static void Example()
     {
       var sim = new Simulation();
       sim.Init = o =>
       {
-        var charlie = new Charlie {X = 200, Y = 200};
         sim.Objects.Clear();
-        sim.Objects.TryAdd("charlie", charlie);
+        sim.Objects.TryAdd("charlie", new Charlie {X = 200, Y = 200});
+        sim.Objects.TryAdd("field", new Field(400, 400));
       };
       sim.Render = ctx =>
       {
-        if (sim.Objects.TryGetValue("charlie", out var obj))
-        {
-          ((Charlie) obj).Render(ctx);
-        }
+        if (sim.Objects.TryGetValue("field", out var obj2))
+          ((RenderObject) obj2).Render(ctx);
+        if (sim.Objects.TryGetValue("charlie", out var obj1))
+          ((RenderObject) obj1).Render(ctx);
       };
       sim.Update = delta =>
       {
@@ -442,9 +567,9 @@ namespace sensor_positioning
         {
           ((Charlie) obj).Update(delta);
         }
+        Thread.Sleep(20);
       };
       var app = new RunCharlie(sim);
-      return app;
     }
   }
 }
