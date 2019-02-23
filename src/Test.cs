@@ -4,6 +4,7 @@ using Cairo;
 using Geometry;
 using GLib;
 using Gtk;
+using run_charlie;
 using Application = Gtk.Application;
 using Key = Gdk.Key;
 using Rectangle = Geometry.Rectangle;
@@ -25,7 +26,7 @@ namespace sensor_positioning
     public static void TestRunCharlie()
     {
       Application.Init();
-      RunCharlie.Example();
+      var app = new RunCharlie();
       Application.Run();
     }
     
