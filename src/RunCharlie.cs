@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using System.Timers;
 using Cairo;
 using Gdk;
@@ -14,61 +15,100 @@ using WindowType = Gtk.WindowType;
 
 namespace run_charlie
 {
-  public interface ISimulation
-  {
-    string GetTitle();
-    string GetDescr();
-    string GetConfig();
-    void Init(Dictionary<string, string> config);
-    void Update(long deltaTime);
-    void Render(Context ctx);
-    void Log();
-  }
-  
-  public class Simulation
-  {
-    public Action<Dictionary<string, string>> Init = config => {};
-    public Action<long> Update = dt => {};
-    public Action<Context> Render = ct => {};
-    public Action<object> Log = fw => {};
-    public string Title = "Run Charlie";
-
-    public string Descr = "RunCharlie is multi purpose simulation app. It " +
-                          "tries not to apply to many rules on how the " +
-                          "simulation is run and structured.";
-    public bool Started;
-    public int Iteration;
-  }
-  
   internal class Loader : MarshalByRefObject 
   {
-    private Assembly _assembly;
-
-    public void LoadAssembly(string path)
+    public object LoadAssembly(string path, string className)
     {
-      _assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
+      var assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
+      var type = assembly.GetType(className);
+      return Activator.CreateInstance(type);
+//      Console.WriteLine(a.GetType());
+//      var methodInfo = classType.GetMethod("Init");
+//      methodInfo.Invoke(a, new object[]{null});
+    }
+  }
+  
+  public class DefaultSimulation : ISimulation
+  {
+    private int _minRadius;
+    private int _maxRadius;
+    private double _growRate;
+    private double _radius;
+    private bool _grow;
+    
+    public string GetTitle()
+    {
+      return "Run Charlie";
     }
 
-    public string GetStaticField(string typeName, string fieldName)
+    public string GetDescr()
     {
-      return _assembly.GetType(typeName).GetField(fieldName,
-        BindingFlags.Public | BindingFlags.Static)?.GetValue(null).ToString();
+      return 
+        "RunCharlie is multi purpose simulation app. It tries not to apply " +
+        "to many rules on how the simulation is run and structured.";
     }
 
-    public void RunStaticMethod(string typeName, 
-      string methodName, 
-      object[] parameters)
+    public string GetConfig()
     {
-      _assembly.GetType(typeName)?
-        .GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)?
-        .Invoke(null, parameters);
+      return "# This is an example configuration\n" +
+             "# Change the values and initialize the simulation to\n" +
+             "# see the changes\n" +
+             "MinRadius = 0\n" +
+             "MaxRadius = 70\n" +
+             "GrowRate = 0.3";
+    }
+
+    public void Init(Dictionary<string, string> config)
+    {
+      Console.WriteLine("Initialize Default Simulation");
+      _radius = _maxRadius;
+      _grow = false;
+      
+      if (config.ContainsKey("MinRadius"))
+      {
+        _minRadius = int.TryParse(config["MinRadius"], out var minRadius)
+          ? minRadius : 0;
+      }
+      if (config.ContainsKey("MaxRadius"))
+      {
+        _maxRadius = int.TryParse(config["MaxRadius"], out var maxRadius)
+          ? maxRadius : 60;
+      }
+      if (config.ContainsKey("GrowRate"))
+      {
+        _growRate = float.TryParse(config["GrowRate"], out var growRate)
+          ? growRate : 0.3;
+      }
+    }
+
+    public void Update(long deltaTime)
+    {
+      if (_radius > _maxRadius || _radius < _minRadius) _grow = !_grow;
+      if (_grow) _radius += _growRate * deltaTime / 30;
+      else _radius -= _growRate * deltaTime / 30;
+    }
+
+    public void Render(Context ctx)
+    {
+      ctx.SetSourceRGB(0.769, 0.282, 0.295);
+      ctx.Arc(200, 200, _radius, 0, 2 * Math.PI);
+      ctx.ClosePath();
+      ctx.Fill();
+    }
+
+    public string Log()
+    {
+      return null;
     }
   }
   
   /// <summary> RunCharlie is a simulation framework. </summary>
   public class RunCharlie
   {
-    private Simulation _sim;
+    public bool Started;
+    public int Iteration;
+    
+    private ISimulation _sim;
     private Thread _logicThread;
     private AppDomain _appDomain;
     private DrawingArea _canvas;
@@ -78,16 +118,16 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _sim = new Simulation();
+      _sim = new DefaultSimulation();
       
       SetupStyle();
 
       _title = new VBox(false, 5)
       {
-        new Label(_sim.Title) {Name = "title", Xalign = 0},
+        new Label(_sim.GetTitle()) {Name = "title", Xalign = 0},
         new Label
         {
-          Text = _sim.Descr,
+          Text = _sim.GetDescr(),
           Wrap = true, 
           Halign = Align.Start, 
           Xalign = 0
@@ -107,8 +147,6 @@ namespace run_charlie
       root.PackStart(CreateControls(), false, false, 0);
       root.PackStart(CreateConfig(), true, true, 0);
       
-      Init();
-
       var window = new Window(WindowType.Toplevel)
       {
         WidthRequest = 440,
@@ -133,8 +171,11 @@ namespace run_charlie
       };
       window.Move(100, 100);
       window.ShowAll();
+      
+      Init();
     }
 
+    // Todo: Implement this method
     private void LoadModule(string path, string className)
     {
       if (_logicThread != null)
@@ -144,105 +185,118 @@ namespace run_charlie
       }
       if (_appDomain != null) AppDomain.Unload(_appDomain);
       
-      var ads = new AppDomainSetup
-      {
-        ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
-        DisallowBindingRedirects = false,
-        DisallowCodeDownload = true,
-        ConfigurationFile =
-          AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
-      };
-      _appDomain = AppDomain.CreateDomain("Test", null, ads);
-      var loader = (Loader) _appDomain.CreateInstanceAndUnwrap( 
-        typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
+//      var ads = new AppDomainSetup
+//      {
+//        ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
+//        DisallowBindingRedirects = false,
+//        DisallowCodeDownload = true,
+//        ConfigurationFile =
+//          AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
+//      };
+//      _appDomain = AppDomain.CreateDomain("Test", null, ads);
+//      var loader = (Loader) _appDomain.CreateInstanceAndUnwrap( 
+//        typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
       
-      loader.LoadAssembly(path);
+//      var obj = loader.LoadAssembly(path, "SineExample");
+//      var methodInfo = obj.GetType().GetMethod("Init");
+//      methodInfo.Invoke(obj, new object[]{null});
+//      Console.WriteLine(methodInfo);
       
-      _sim = new Simulation
+      var setup = new AppDomainSetup 
       {
-        Title = loader.GetStaticField(className, "Title"),
-        Descr = loader.GetStaticField(className, "Descr"),
-        Init = config => loader.RunStaticMethod(
-          className, "Init", new object[]{config}),
-        Update = dt => loader.RunStaticMethod(
-          className, "Update", new object[]{dt}),
-//        Render = ctx => loader.RunStaticMethod(
-//          className, "Render", new object[]{ctx})
+        ApplicationName = path, 
+        ConfigurationFile = 
+          AppDomain.CurrentDomain.SetupInformation.ConfigurationFile,
+        ApplicationBase = AppDomain.CurrentDomain.BaseDirectory 
       };
-      ((Label) _title.Children[0]).Text = _sim.Title;
-      ((Label) _title.Children[1]).Text = _sim.Descr;
-      Init();
+      var appDomain = AppDomain.CreateDomain(
+        setup.ApplicationName,
+        AppDomain.CurrentDomain.Evidence, 
+        setup);
+      var x = appDomain.CreateInstanceAndUnwrap(path, "SineExample") as ISimulation;
+//      x.Init(new Dictionary<string, string>());
+
+//      ((Label) _title.Children[0]).Text = _sim.Title;
+//      ((Label) _title.Children[1]).Text = _sim.Descr;
+//      Init();
     }
     
-    // Todo: Implement method
-    private void ParseConfig(string config)
+    private static Dictionary<string, string> ParseConfig(string config)
     {
-      var lines = config.Split(
-        new[] {System.Environment.NewLine},
+      var result = new Dictionary<string, string>();
+      var lines = config.Split(new[] {System.Environment.NewLine},
         StringSplitOptions.None);
-      var i = 0;
+      
       foreach (var line in lines)
       {
-        i++;
-        if (line.StartsWith("#")) Console.WriteLine("Comment: " + i);
-//        else
-//        {
-//          var index = line.IndexOf('=');
-//          if (index < 0) Console.WriteLine("Invalid line: " + i);
-//          else Console.WriteLine(
-//            "Key: " + line.Substring(0, index) + 
-//            ", Value: " + line.Substring(index + 1, line.Length - index + 1));
-//        }
+        if (line.StartsWith("#") || line == "") continue;
+
+        var key = new StringBuilder();
+        var value = new StringBuilder();
+        var parseValue = false;
+        foreach (var x in line)
+        {
+          if (x == '=')
+          {
+            parseValue = true;
+            continue;
+          }
+          if (x == ' ') continue;
+          if (parseValue) value.Append(x);
+          else key.Append(x);
+        }
+        result.Add(key.ToString(), value.ToString());
       }
+
+      return result;
     }
     
     private void Init()
     {
-      // parse config buffer here
-//      ParseConfig(_configBuffer.Text);
-      
-      _sim.Init(null);
-      _sim.Iteration = 0;
+      var config = ParseConfig(_configBuffer.Text);
+      _sim.Init(config);
+      Iteration = 0;
       AfterUpdate();
     }
 
     private void Start()
     {
-      _sim.Started = true;
+      Started = true;
       _logicThread = new Thread(Update);
       _logicThread.Start();
     }
     
     private void Stop()
     {
-      _sim.Started = false;
+      Started = false;
 //      _sim.LogicThread?.Abort();
     }
     
     private void Update()
     {
-      var timer = new Stopwatch();
-      timer.Start();
-      while (_sim.Started)
+      long deltaTime = 0;
+      while (Started)
       {
+        var timer = Stopwatch.StartNew();
         try
         {
-          _sim.Update(timer.ElapsedMilliseconds);
-          timer.Restart();
+          _sim.Update(deltaTime);
         }
         catch (Exception e) { Console.WriteLine(e); }
 
-        _sim.Iteration++;
+        Iteration++;
         Application.Invoke((sender, args) => AfterUpdate());
+        Thread.Sleep(30);
+        timer.Stop();
+        deltaTime = timer.ElapsedMilliseconds;
       }
-      timer.Stop();
       _logicThread = null;
     }
 
     private void AfterUpdate()
     {
       _canvas.QueueDraw();
-      _iterationLbl.Text = "i = " + _sim.Iteration;
+      _iterationLbl.Text = "i = " + Iteration;
     }
 
     private Box CreateModuleControl()
@@ -296,7 +350,7 @@ namespace run_charlie
       var initBtn = new Button("Init");
       initBtn.Clicked += (sender, args) =>
       {
-        if (_sim.Started) Stop(null, null);
+        if (Started) Stop(null, null);
         var t = new Timer(20);
         t.Elapsed += (o, eventArgs) =>
         {
@@ -311,7 +365,7 @@ namespace run_charlie
         t.Enabled = true;
       };
 
-      _iterationLbl = new Label("i = " + _sim.Iteration) {Halign = Align.End};
+      _iterationLbl = new Label("i = " + Iteration) {Halign = Align.End};
 
       var result = new HBox(false, 10);
       result.PackStart(initBtn, false, false, 0);
@@ -352,10 +406,7 @@ namespace run_charlie
     {
       _configBuffer = new TextBuffer(new TextTagTable())
       {
-        Text = "charlieSize: 12" +
-               "\nminObstSize: 10" +
-               "\nmaxObstSize: 50" +
-               "\nsizeIncrease: 1"
+        Text = _sim.GetConfig()
       };
 
       var title = new Label("Configuration")
@@ -370,15 +421,6 @@ namespace run_charlie
         Indent = 3,
         WrapMode = WrapMode.Char
       };
-//      textView.KeyPressEvent += (o, args) =>
-//      {
-//        Console.WriteLine(args.Event.Key);
-//        if (args.Event.Key == Gdk.Key.rightarrow &&
-//            args.Event.State == ModifierType.MetaMask)
-//        {
-//          Console.WriteLine("go to right");
-//        }
-//      };
       var result = new VBox(false, 7);
       result.PackStart(title, false, false, 0);
       result.PackStart(textView, true, true, 0);

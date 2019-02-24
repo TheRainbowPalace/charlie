@@ -103,31 +103,6 @@ namespace run_charlie
   }
 
   /// <summary>
-  /// A plain area to walk on.
-  /// </summary>
-  internal class Field : RenderObject
-  {
-    public double Width;
-    public double Height;
-
-    public Field(double width, double height)
-    {
-      Width = width;
-      Height = height;
-    }
-
-    public override void Render(Context cr)
-    {
-      cr.Rectangle(X, Y, Width, Height);
-      cr.LineWidth = 3;
-      cr.SetSourceRGB(0.2, 0.2, 0.2);
-      cr.FillPreserve();
-      cr.SetSourceRGB(0.721, 0.722, 0.721);
-      cr.Stroke();
-    }
-  }
-
-  /// <summary>
   /// Something to collide with.d
   /// </summary>
   internal class Obstacle : RenderObject
@@ -166,9 +141,6 @@ namespace run_charlie
     public void Init()
     {
       _renderObjects.Clear();
-      
-      // Create field
-      _renderObjects.Add(new Field(FieldWidth, FieldHeight));
       
       // Create obstacles
       for (var i = 0; i < ObstCount; i++)
@@ -221,7 +193,6 @@ namespace run_charlie
     {
       objects.Clear();
       objects.TryAdd("charlie", new Charlie {X = 200, Y = 200});
-      objects.TryAdd("field", new Field(400, 400));
     }
 
     public static void Update(long dt)
@@ -236,8 +207,6 @@ namespace run_charlie
 
     public static void Render(Context ctx)
     {
-      if (objects.TryGetValue("field", out var obj2))
-        ((RenderObject) obj2).Render(ctx);
       if (objects.TryGetValue("charlie", out var obj1))
         ((RenderObject) obj1).Render(ctx);
     }
