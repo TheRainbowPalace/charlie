@@ -60,10 +60,6 @@ namespace run_charlie
 
     public void Init(Dictionary<string, string> config)
     {
-      Console.WriteLine("Initialize Default Simulation");
-      _radius = _maxRadius;
-      _grow = false;
-      
       if (config.ContainsKey("MinRadius"))
       {
         _minRadius = int.TryParse(config["MinRadius"], out var minRadius)
@@ -79,6 +75,9 @@ namespace run_charlie
         _growRate = float.TryParse(config["GrowRate"], out var growRate)
           ? growRate : 0.3;
       }
+      
+      _radius = _maxRadius;
+      _grow = false;
     }
 
     public void Update(long deltaTime)
@@ -197,7 +196,7 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _sim = new SineExample();
+      _sim = new DefaultSimulation();
       
       SetupStyle();
 
