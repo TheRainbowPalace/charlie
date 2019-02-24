@@ -28,7 +28,7 @@ namespace run_charlie
     }
   }
   
-  public class DefaultSimulation : ISimulation
+  internal class DefaultSimulation : ISimulation
   {
     private int _minRadius;
     private int _maxRadius;
@@ -54,7 +54,7 @@ namespace run_charlie
              "# Change the values and initialize the simulation to\n" +
              "# see the changes\n" +
              "MinRadius = 0\n" +
-             "MaxRadius = 70\n" +
+             "MaxRadius = 60\n" +
              "GrowRate = 0.3";
     }
 
@@ -101,6 +101,85 @@ namespace run_charlie
       return null;
     }
   }
+
+  internal class SineExample : ISimulation
+  {
+    private double _time;
+    private double _amplitude;
+    private double _wavelength;
+    private double _y;
+    private List<double> _trail;
+    private int _trailLength;
+    private int _shift;
+    
+    public string GetTitle()
+    {
+      return "Sine Example";
+    }
+
+    public string GetDescr()
+    {
+      return "The sine example allows to render and modify a sine wave.";
+    }
+
+    public string GetConfig()
+    {
+      return "Wavelength = 200\n" +
+             "Amplitude = 100\n" +
+             "Shift = 0";
+    }
+
+    private static double GetDouble(Dictionary<string, string> config,
+      string key, double backup)
+    {
+      if (!config.ContainsKey(key)) return backup;
+      return float.TryParse(config[key], out var x) ? x : backup;
+    }
+
+    private static int GetInt(Dictionary<string, string> config,
+      string key, int backup)
+    {
+      if (!config.ContainsKey(key)) return backup;
+      return int.TryParse(config[key], out var x) ? x : backup;
+    }
+
+    public void Init(Dictionary<string, string> config)
+    {
+      _y = 200;
+      _time = 0;
+      _trailLength = 40;
+      _shift = 0;
+      _trail = new List<double>(_trailLength) {_y};
+      _wavelength = GetDouble(config, "Wavelength", 200);
+      _amplitude = GetDouble(config, "Amplitude", 100);
+      _shift = GetInt(config, "Shift", 0);
+    }
+
+    public void Update(long deltaTime)
+    {
+      _time += deltaTime / _wavelength;
+      _y = 200 + Math.Sin(_time) * _amplitude;
+      if (_trail.Count == _trailLength) _trail.RemoveAt(_trailLength - 1);
+      _trail.Insert(0, _y);
+    }
+
+    public void Render(Context ctx)
+    {
+      for (var i = 0; i < _trail.Count; i++)
+      {
+        ctx.SetSourceRGB(0.769, 0.282, 0.295);
+        ctx.Arc(200 + _shift - 10 * i, _trail[i], 
+          Math.Log(20.0, i + 2), 0, 2 * Math.PI);
+        ctx.ClosePath();
+        ctx.Fill();
+      }
+    }
+
+    public string Log()
+    {
+      return null;
+    }
+  }
   
   /// <summary> RunCharlie is a simulation framework. </summary>
   public class RunCharlie
@@ -118,7 +197,7 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _sim = new DefaultSimulation();
+      _sim = new SineExample();
       
       SetupStyle();
 
