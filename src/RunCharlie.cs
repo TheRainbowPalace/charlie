@@ -248,6 +248,8 @@ namespace run_charlie
         Stop();
       };
       window.Move(100, 100);
+      window.IconName = "logo";
+      window.SetIconFromFile(AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
       window.ShowAll();
       
       Init();
