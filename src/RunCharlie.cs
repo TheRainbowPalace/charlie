@@ -244,7 +244,7 @@ namespace run_charlie
         
         timer.Stop();
         deltaTime = timer.ElapsedMilliseconds;
-        _elapsedTime += deltaTime - 20;
+        _elapsedTime += deltaTime;
       }
       _logicThread = null;
     }
@@ -448,28 +448,28 @@ button:active {background-color: #C4484B;}
 button:disabled {border: none;}
 
 entry {
-  color: #010101;
-  background: transparent;
-  caret-color: #C4C4C4;
+  color: #939797;
+  caret-color: #939797;
+  background: #010101;
+  padding: 2px 15px;
+  border: none;
   box-shadow: none;
-  padding: 2px 10px;
-  border-radius: 100px;
-  border: 2px solid #010101;
 }
 entry selection {
   background: #C4484B;
 }
 
 #runSteps {
-  border: 2px solid #010101;
+  border: 1px solid #010101;
   border-radius: 100px;
 }
 #runSteps entry {
+  background: transparent;
+  padding: 1px 5px 1px 10px;
   border: none;
-  padding: 2px 5px 2px 10px;
 }
 #runSteps button {
-  padding: 2px 7px;
+  padding: 1px 7px;
 }
 
 tooltip {
