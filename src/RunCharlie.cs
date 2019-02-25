@@ -47,7 +47,10 @@ namespace run_charlie
     {
       _sim = new SineExample();
       
-      SetupStyle();
+      var provider = new CssProvider();
+      provider.LoadFromPath(
+        AppDomain.CurrentDomain.BaseDirectory + "/style.css");
+      StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
 
       _title = new VBox(false, 5)
       {
@@ -413,89 +416,6 @@ namespace run_charlie
       result.PackStart(title, false, false, 0);
       result.PackStart(textView, true, true, 0);
       return result;
-    }
-
-    private void SetupStyle()
-    {
-      var provider = new CssProvider();
-      provider.LoadFromData(@"
-window {
-  background-color: #333333;
-  font-family: Andale Mono, Monospace;
-}
-
-#title {
-  font-size: xx-large;
-  font-weight: 100;
-}
-
-label {
-  color: #C4C4C4;
-}
-
-button {
-  font-size: 22px;
-  color: #939797;
-  background: #010101;
-  padding: 2px 20px;
-  border: none;
-  text-shadow: none;
-  box-shadow: none;
-  border-radius: 30px;
-}
-button:hover {background-color: #1A1B1B;}
-button:active {background-color: #C4484B;}
-button:disabled {border: none;}
-
-entry {
-  color: #939797;
-  caret-color: #939797;
-  background: #010101;
-  padding: 2px 15px;
-  border: none;
-  box-shadow: none;
-}
-entry selection {
-  background: #C4484B;
-}
-
-#runSteps {
-  border: 1px solid #010101;
-  border-radius: 100px;
-}
-#runSteps entry {
-  background: transparent;
-  padding: 1px 5px 1px 10px;
-  border: none;
-}
-#runSteps button {
-  padding: 1px 7px;
-}
-
-tooltip {
-  border: none;
-  padding: 2px 10px;
-}
-
-textview {
-  background: #C4C4C4;
-  padding: 10px 5px;
-  caret-color: #010101;
-}
-textview text {
-  background: transparent;
-  color: #1A1B1B;
-}
-textview text selection {
-  background: #C4484B;
-}
-
-scrolledwindow undershoot, scrolledwindow overshoot {
-  background-image: none;
-  background: none;
-}
-       ");
-      StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
     }
   }
 }

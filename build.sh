@@ -5,5 +5,6 @@
 #     src/SineExample.cs src/ISimulation.cs
 
 cp resources/logo.png bin/Debug/
+cp resources/style.css bin/Debug/
 msbuild sensor-positioning.csproj /verbosity:quiet
 clear
