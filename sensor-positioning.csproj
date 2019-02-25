@@ -79,8 +79,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\clipper.cs" />
+    <Compile Include="src\Examples.cs" />
     <Compile Include="src\Geometry.cs" />
     <Compile Include="src\Geometry.test.cs" />
+    <Compile Include="src\ISimulation.cs" />
     <Compile Include="src\OptimizationFcts.cs" />
     <Compile Include="src\PcgRandom.cs" />
     <Compile Include="src\Pso.cs" />

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Timers;
-using Cairo;
 using Gdk;
 using Gtk;
 using Application = Gtk.Application;
@@ -28,159 +27,7 @@ namespace run_charlie
     }
   }
   
-  internal class DefaultSimulation : ISimulation
-  {
-    private int _minRadius;
-    private int _maxRadius;
-    private double _growRate;
-    private double _radius;
-    private bool _grow;
-    
-    public string GetTitle()
-    {
-      return "Run Charlie";
-    }
-
-    public string GetDescr()
-    {
-      return 
-        "RunCharlie is multi purpose simulation app. It tries not to apply " +
-        "to many rules on how the simulation is run and structured.";
-    }
-
-    public string GetConfig()
-    {
-      return "# This is an example configuration\n" +
-             "# Change the values and initialize the simulation to\n" +
-             "# see the changes\n" +
-             "MinRadius = 0\n" +
-             "MaxRadius = 60\n" +
-             "GrowRate = 0.3";
-    }
-
-    public void Init(Dictionary<string, string> config)
-    {
-      if (config.ContainsKey("MinRadius"))
-      {
-        _minRadius = int.TryParse(config["MinRadius"], out var minRadius)
-          ? minRadius : 0;
-      }
-      if (config.ContainsKey("MaxRadius"))
-      {
-        _maxRadius = int.TryParse(config["MaxRadius"], out var maxRadius)
-          ? maxRadius : 60;
-      }
-      if (config.ContainsKey("GrowRate"))
-      {
-        _growRate = float.TryParse(config["GrowRate"], out var growRate)
-          ? growRate : 0.3;
-      }
-      
-      _radius = _maxRadius;
-      _grow = false;
-    }
-
-    public void Update(long deltaTime)
-    {
-      if (_radius > _maxRadius || _radius < _minRadius) _grow = !_grow;
-      if (_grow) _radius += _growRate * deltaTime / 30;
-      else _radius -= _growRate * deltaTime / 30;
-    }
-
-    public void Render(Context ctx)
-    {
-      ctx.SetSourceRGB(0.769, 0.282, 0.295);
-      ctx.Arc(200, 200, _radius, 0, 2 * Math.PI);
-      ctx.ClosePath();
-      ctx.Fill();
-    }
-
-    public string Log()
-    {
-      return null;
-    }
-  }
-
-  internal class SineExample : ISimulation
-  {
-    private double _time;
-    private double _amplitude;
-    private double _wavelength;
-    private double _y;
-    private List<double> _trail;
-    private int _trailLength;
-    private int _shift;
-    
-    public string GetTitle()
-    {
-      return "Sine Example";
-    }
-
-    public string GetDescr()
-    {
-      return "The sine example allows to render and modify a sine wave.";
-    }
-
-    public string GetConfig()
-    {
-      return "Wavelength = 200\n" +
-             "Amplitude = 100\n" +
-             "Shift = 0";
-    }
-
-    private static double GetDouble(Dictionary<string, string> config,
-      string key, double backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return float.TryParse(config[key], out var x) ? x : backup;
-    }
-
-    private static int GetInt(Dictionary<string, string> config,
-      string key, int backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return int.TryParse(config[key], out var x) ? x : backup;
-    }
-
-    public void Init(Dictionary<string, string> config)
-    {
-      _y = 200;
-      _time = 0;
-      _trailLength = 40;
-      _shift = 0;
-      _trail = new List<double>(_trailLength) {_y};
-      _wavelength = GetDouble(config, "Wavelength", 200);
-      _amplitude = GetDouble(config, "Amplitude", 100);
-      _shift = GetInt(config, "Shift", 0);
-    }
-
-    public void Update(long deltaTime)
-    {
-      _time += deltaTime / _wavelength;
-      _y = 200 + Math.Sin(_time) * _amplitude;
-      if (_trail.Count == _trailLength) _trail.RemoveAt(_trailLength - 1);
-      _trail.Insert(0, _y);
-    }
-
-    public void Render(Context ctx)
-    {
-      for (var i = 0; i < _trail.Count; i++)
-      {
-        ctx.SetSourceRGB(0.769, 0.282, 0.295);
-        ctx.Arc(200 + _shift - 10 * i, _trail[i], 
-          Math.Log(20.0, i + 2), 0, 2 * Math.PI);
-        ctx.ClosePath();
-        ctx.Fill();
-      }
-    }
-
-    public string Log()
-    {
-      return null;
-    }
-  }
-  
-  /// <summary> RunCharlie is a simulation framework. </summary>
+  /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
     public bool Started;
@@ -248,8 +95,8 @@ namespace run_charlie
         Stop();
       };
       window.Move(100, 100);
-      window.IconName = "logo";
-      window.SetIconFromFile(AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
+      window.SetIconFromFile(
+        AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
       window.ShowAll();
       
       Init();
