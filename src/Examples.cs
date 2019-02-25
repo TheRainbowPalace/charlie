@@ -5,32 +5,6 @@ using Geometry;
 
 namespace run_charlie
 {
-  public abstract class AbstractSimulation : ISimulation
-  {
-    public abstract string GetTitle();
-    public abstract string GetDescr();
-    public abstract string GetConfig();
-    public abstract void Init(Dictionary<string, string> config);
-    public abstract void Update(long deltaTime);
-    public abstract void Render(Context ctx);
-    
-    public virtual byte[] Render(int width, int height)
-    {
-      var surface = new ImageSurface(Format.ARGB32, width, height);
-      var ctx = new Context(surface);
-      Render(ctx);
-      var result = surface.Data;
-      surface.Dispose();
-      ctx.Dispose();
-      return result;
-    }
-
-    public string Log()
-    {
-      return null;
-    }
-  }
-  
   public class DefaultSimulation : AbstractSimulation
   {
     private int _minRadius;
