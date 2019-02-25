@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Cairo;
 
 namespace run_charlie
 {
@@ -10,7 +9,7 @@ namespace run_charlie
     string GetConfig();
     void Init(Dictionary<string, string> config);
     void Update(long deltaTime);
-    void Render(Context ctx);
+    byte[] Render(int width, int height);
     string Log();
   }
 }

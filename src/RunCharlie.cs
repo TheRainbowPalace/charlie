@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Timers;
+using Cairo;
 using Gdk;
 using Gtk;
 using Application = Gtk.Application;
@@ -292,11 +293,19 @@ namespace run_charlie
         t.Enabled = true;
       };
 
+      var iterateSteps = new HBox(false, 0)
+      {
+        new Entry("10") {WidthChars = 4}, 
+        new Button("R") {TooltipText = "Run x iterations"}
+      };
+      iterateSteps.Name = "iterateSteps";
+
       _iterationLbl = new Label("i = " + Iteration) {Halign = Align.End};
 
       var result = new HBox(false, 10);
       result.PackStart(initBtn, false, false, 0);
       result.PackStart(startBtn, false, false, 0);
+//      result.PackStart(iterateSteps, false, false, 0);
       result.PackStart(_iterationLbl, true, true, 0);
       result.HeightRequest = 10;
       return result;
@@ -317,8 +326,15 @@ namespace run_charlie
         args.Cr.FillPreserve();
         args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
         args.Cr.Stroke();
-        
-        try { _sim.Render(args.Cr); }
+
+        try
+        {
+          var data = _sim.Render(400, 400);
+          var s = new ImageSurface(data, Format.ARGB32, 400, 400, 1600);
+          args.Cr.SetSourceSurface(s, 0, 0);
+          args.Cr.Paint();
+          s.Dispose();
+        }
         catch (Exception e) { Console.WriteLine(e); }
       };
       _canvas.SetSizeRequest(400, 400);
@@ -393,12 +409,29 @@ entry {
   border: none;
   border-radius: 0;
   padding: 2px 15px;
-  outline: none;
+  box-shadow: none;
+}
+
+tooltip {
+  border: none;
+  padding: 2px 10px;
+}
+
+#iterateSteps {
+  border: 1px solid #010101;
+  border-radius: 100px;
+}
+#iterateSteps entry {
+  background: transparent;
+  padding: 2px 10px;
+}
+#iterateSteps button {
+  padding: 2px 10px; 
 }
 
 textview {
   background: #C4C4C4;
-  padding: 10px 5px 10px 5px;
+  padding: 10px 5px;
   caret-color: black;
 }
 textview text {
