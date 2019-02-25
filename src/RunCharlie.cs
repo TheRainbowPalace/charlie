@@ -31,12 +31,13 @@ namespace run_charlie
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
-    public bool Started;
-    public int Iteration;
-    
+    private bool _started;
+    private long _iteration;
+    private long _elapsedTime;
     private ISimulation _sim;
     private Thread _logicThread;
     private AppDomain _appDomain;
+    
     private DrawingArea _canvas;
     private Label _iterationLbl;
     private Box _title;
@@ -44,7 +45,7 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _sim = new DefaultSimulation();
+      _sim = new SineExample();
       
       SetupStyle();
 
@@ -67,11 +68,6 @@ namespace run_charlie
         MarginStart = 20, 
         MarginEnd = 20
       };
-      root.PackStart(_title, false, false, 0);
-      root.PackStart(CreateModuleControl(), false, false, 0);
-      root.PackStart(CreateCanvas(), false, false, 0);
-      root.PackStart(CreateControls(), false, false, 0);
-      root.PackStart(CreateConfig(), true, true, 0);
       
       var window = new Window(WindowType.Toplevel)
       {
@@ -98,9 +94,17 @@ namespace run_charlie
       window.Move(100, 100);
       window.SetIconFromFile(
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
+      window.Realized += (sender, args) =>
+      {
+        root.PackStart(_title, false, false, 0);
+        root.PackStart(CreateModuleControl(), false, false, 0);
+        root.PackStart(CreateCanvas(), false, false, 0);
+        root.PackStart(CreateControls(), false, false, 0);
+        root.PackStart(CreateConfig(), true, true, 0);
+        root.ShowAll();
+        Init();
+      };
       window.ShowAll();
-      
-      Init();
     }
 
     // Todo: Implement this method
@@ -183,27 +187,49 @@ namespace run_charlie
     {
       var config = ParseConfig(_configBuffer.Text);
       _sim.Init(config);
-      Iteration = 0;
+      _iteration = 0;
+      _elapsedTime = 0;
       AfterUpdate();
     }
 
     private void Start()
     {
-      Started = true;
+      _started = true;
       _logicThread = new Thread(Update);
+      _logicThread.Start();
+    }
+
+    private void Start(int steps)
+    {
+      _logicThread = new Thread(() => UpdateSteps(steps));
       _logicThread.Start();
     }
     
     private void Stop()
     {
-      Started = false;
-//      _sim.LogicThread?.Abort();
+      _started = false;
+    }
+
+    private void UpdateSteps(int steps)
+    {
+      var timer = Stopwatch.StartNew();
+      while (steps > 0)
+      {
+        try { _sim.Update(20); }
+        catch (Exception e) { Console.WriteLine(e); }
+        _iteration++;
+        steps--;
+      }
+      timer.Stop();
+      _elapsedTime += timer.ElapsedMilliseconds;
+      Application.Invoke((sender, args) => AfterUpdate());
+      _logicThread = null;
     }
     
     private void Update()
     {
       long deltaTime = 0;
-      while (Started)
+      while (_started)
       {
         var timer = Stopwatch.StartNew();
         try
@@ -212,11 +238,13 @@ namespace run_charlie
         }
         catch (Exception e) { Console.WriteLine(e); }
 
-        Iteration++;
+        _iteration++;
         Application.Invoke((sender, args) => AfterUpdate());
-        Thread.Sleep(30);
+        Thread.Sleep(20);
+        
         timer.Stop();
         deltaTime = timer.ElapsedMilliseconds;
+        _elapsedTime += deltaTime - 20;
       }
       _logicThread = null;
     }
@@ -224,7 +252,8 @@ namespace run_charlie
     private void AfterUpdate()
     {
       _canvas.QueueDraw();
-      _iterationLbl.Text = "i = " + Iteration;
+      _iterationLbl.Text = "i = " + _iteration + 
+                           ", e = " + _elapsedTime / 1000 + "s";
     }
 
     private Box CreateModuleControl()
@@ -234,8 +263,10 @@ namespace run_charlie
         "sensor-positioning/bin/SineExample.dll")
       {
         PlaceholderText = "/path/to/your/module/...", 
-        HasFocus = false
+        HasFocus = false,
+        HasFrame = false
       };
+      pathEntry.FocusGrabbed += (sender, args) => pathEntry.SelectRegion(0, 0);
       
       var loadBtn = new Button("Load");
       loadBtn.Clicked += (sender, args) =>
@@ -252,12 +283,12 @@ namespace run_charlie
     
     private Box CreateControls()
     {
-      var startBtn = new Button("Start");
+      var startBtn = new Button("Start") {HasFocus = true};
       startBtn.Clicked += Start;
 
       void Stop(object sender, EventArgs args)
       {
-        Console.WriteLine("Stop");
+        Console.WriteLine("Stop ");
         
         this.Stop();
         startBtn.Label = "Start";
@@ -270,7 +301,7 @@ namespace run_charlie
         Console.WriteLine("Start");
         
         this.Start();
-        startBtn.Label = "Stop";
+        startBtn.Label = "Stop ";
         startBtn.Clicked -= Start;
         startBtn.Clicked += Stop;
       }
@@ -278,7 +309,7 @@ namespace run_charlie
       var initBtn = new Button("Init");
       initBtn.Clicked += (sender, args) =>
       {
-        if (Started) Stop(null, null);
+        if (_started) Stop(null, null);
         var t = new Timer(20);
         t.Elapsed += (o, eventArgs) =>
         {
@@ -293,19 +324,28 @@ namespace run_charlie
         t.Enabled = true;
       };
 
-      var iterateSteps = new HBox(false, 0)
+      var stepsEntry = new Entry("10")
       {
-        new Entry("10") {WidthChars = 4}, 
-        new Button("R") {TooltipText = "Run x iterations"}
+        WidthChars = 4,
+        HasFrame = false,
+        Alignment = 0.5f
       };
-      iterateSteps.Name = "iterateSteps";
+      var stepsBtn = new Button("R") {TooltipText = "Run x iterations"};
+      stepsBtn.Clicked += (sender, args) =>
+      {
+        if (_logicThread != null) return;
+        if (int.TryParse(stepsEntry.Text, out var x)) this.Start(x);
+        else Console.WriteLine("Please enter a number >= 0.");
+      };
+      var runSteps = new HBox(false, 0) {stepsEntry, stepsBtn};
+      runSteps.Name = "runSteps";
 
-      _iterationLbl = new Label("i = " + Iteration) {Halign = Align.End};
+      _iterationLbl = new Label("i = " + _iteration) {Halign = Align.End};
 
       var result = new HBox(false, 10);
       result.PackStart(initBtn, false, false, 0);
       result.PackStart(startBtn, false, false, 0);
-//      result.PackStart(iterateSteps, false, false, 0);
+      result.PackStart(runSteps, false, false, 0);
       result.PackStart(_iterationLbl, true, true, 0);
       result.HeightRequest = 10;
       return result;
@@ -316,6 +356,7 @@ namespace run_charlie
       var renderTitle = new Label("Rendering") {Halign = Align.Start};
       
       _canvas = new DrawingArea {Name = "canvas"};
+      _canvas.SetSizeRequest(400, 400);
       _canvas.Drawn += (o, args) =>
       {
         args.Cr.Rectangle(0, 0, 
@@ -329,15 +370,19 @@ namespace run_charlie
 
         try
         {
-          var data = _sim.Render(400, 400);
-          var s = new ImageSurface(data, Format.ARGB32, 400, 400, 1600);
+          var data = _sim.Render(
+            _canvas.AllocatedWidth, 
+            _canvas.AllocatedHeight);
+          // Todo set Stride dynamically
+          var s = new ImageSurface(data, Format.ARGB32, 
+            _canvas.AllocatedWidth, 
+            _canvas.AllocatedHeight, 1600);
           args.Cr.SetSourceSurface(s, 0, 0);
           args.Cr.Paint();
           s.Dispose();
         }
         catch (Exception e) { Console.WriteLine(e); }
       };
-      _canvas.SetSizeRequest(400, 400);
 
       var result = new VBox(false, 7);
       result.PackStart(renderTitle, false, false, 0);
@@ -399,17 +444,32 @@ button {
   border-radius: 30px;
 }
 button:hover {background-color: #1A1B1B;}
-button:active {background-color: #595959;}
+button:active {background-color: #C4484B;}
 button:disabled {border: none;}
 
 entry {
-  background: #010101;
-  color: #939797;
-  caret-color: white;
-  border: none;
-  border-radius: 0;
-  padding: 2px 15px;
+  color: #010101;
+  background: transparent;
+  caret-color: #C4C4C4;
   box-shadow: none;
+  padding: 2px 10px;
+  border-radius: 100px;
+  border: 2px solid #010101;
+}
+entry selection {
+  background: #C4484B;
+}
+
+#runSteps {
+  border: 2px solid #010101;
+  border-radius: 100px;
+}
+#runSteps entry {
+  border: none;
+  padding: 2px 5px 2px 10px;
+}
+#runSteps button {
+  padding: 2px 7px;
 }
 
 tooltip {
@@ -417,22 +477,10 @@ tooltip {
   padding: 2px 10px;
 }
 
-#iterateSteps {
-  border: 1px solid #010101;
-  border-radius: 100px;
-}
-#iterateSteps entry {
-  background: transparent;
-  padding: 2px 10px;
-}
-#iterateSteps button {
-  padding: 2px 10px; 
-}
-
 textview {
   background: #C4C4C4;
   padding: 10px 5px;
-  caret-color: black;
+  caret-color: #010101;
 }
 textview text {
   background: transparent;
