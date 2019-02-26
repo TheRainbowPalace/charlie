@@ -191,8 +191,6 @@ namespace run_charlie
         return;
       }
 
-      if (_appDomain != null) AppDomain.Unload(_appDomain);
-
       var previousSim = _sim;
       try
       {
@@ -204,14 +202,18 @@ namespace run_charlie
           ConfigurationFile =
             AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
         };
-        _appDomain = AppDomain.CreateDomain("SimulationDomain", null, ads);
-        var loader = (Loader) _appDomain.CreateInstanceAndUnwrap(
+        var appDomain = AppDomain.CreateDomain("SimulationDomain", null, ads);
+        var loader = (Loader) appDomain.CreateInstanceAndUnwrap(
           typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
 
         loader.LoadAssembly(path, className);
         _sim.End();
         _sim = loader;
 
+        if (_appDomain != null) AppDomain.Unload(_appDomain);
+
+        _appDomain = appDomain;
+        
         ((Label) _title.Children[0]).Text = _sim.GetTitle();
         ((Label) _title.Children[1]).Text = _sim.GetDescr();
         _configBuffer.Text = _sim.GetConfig();
