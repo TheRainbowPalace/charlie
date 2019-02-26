@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Timers;
@@ -18,7 +19,6 @@ namespace run_charlie
 {
   internal class Loader : MarshalByRefObject, ISimulation
   {
-    private Type _type;
     private object _sim;
     private MethodInfo _getTitle;
     private MethodInfo _getDescr;
@@ -27,19 +27,23 @@ namespace run_charlie
     private MethodInfo _update;
     private MethodInfo _render;
     private MethodInfo _end;
+    private MethodInfo _log;
     
     public void LoadAssembly(string path, string className)
     {
       var assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
-      _type = assembly.GetType(className);
+      var type = assembly.GetType(className);
+      if (type == null) throw new ArgumentException();
+        
       _sim = assembly.CreateInstance(className);
-      _getTitle = _type.GetMethod("GetTitle");
-      _getDescr = _type.GetMethod("GetDescr");
-      _getConfig = _type.GetMethod("GetConfig");
-      _init = _type.GetMethod("Init");
-      _end = _type.GetMethod("End");
-      _update = _type.GetMethod("Update");
-      _render = _type.GetMethod("Render", new []{typeof(int), typeof(int)});
+      _getTitle = type.GetMethod("GetTitle");
+      _getDescr = type.GetMethod("GetDescr");
+      _getConfig = type.GetMethod("GetConfig");
+      _init = type.GetMethod("Init");
+      _end = type.GetMethod("End");
+      _update = type.GetMethod("Update");
+      _render = type.GetMethod("Render", new []{typeof(int), typeof(int)});
+      _log = type.GetMethod("Log");
     }
 
     public string GetTitle()
@@ -79,8 +83,27 @@ namespace run_charlie
 
     public string Log()
     {
-      var method = _type.GetMethod("Log");
-      return (string) method.Invoke(_sim, new object[0]);
+      return (string) _log.Invoke(_sim, new object[0]);
+    }
+  }
+
+  internal static class Logger
+  {
+    public static void Say(string text)
+    {
+      Console.WriteLine(text);
+    }
+    
+    public static void Warn(string text)
+    {
+//      Console.ForegroundColor = ConsoleColor.Yellow;
+      Console.WriteLine(text);
+//      Console.ResetColor();
+    }
+
+    public static void Moan(string text)
+    {
+      Console.WriteLine(text);
     }
   }
   
@@ -93,7 +116,8 @@ namespace run_charlie
     private ISimulation _sim;
     private Thread _logicThread;
     private AppDomain _appDomain;
-    
+
+    private Box _root;
     private DrawingArea _canvas;
     private Label _iterationLbl;
     private Box _title;
@@ -101,49 +125,21 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _sim = new SineExample();
+      _sim = new DefaultSimulation();
       
       var provider = new CssProvider();
       provider.LoadFromPath(
         AppDomain.CurrentDomain.BaseDirectory + "/style.css");
       StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
 
-      _title = new VBox(false, 5)
-      {
-        new Label(_sim.GetTitle()) {Name = "title", Xalign = 0},
-        new Label
-        {
-          Text = _sim.GetDescr(),
-          Wrap = true, 
-          Halign = Align.Start, 
-          Xalign = 0
-        }
-      };
-      _title.MarginTop = 15;
-      
-      var root = new VBox (false, 20)
-      {
-        Name = "root",
-        MarginStart = 20, 
-        MarginEnd = 20
-      };
-      
       var window = new Window(WindowType.Toplevel)
       {
         WidthRequest = 440,
+        HeightRequest = 600,
         Title = "",
-        Role = "runcharlie",
+        Role = "RunCharlie",
         Resizable = false,
-        FocusOnMap = true,
-        Child = new ScrolledWindow
-        {
-          OverlayScrolling = false,
-          KineticScrolling = true,
-          VscrollbarPolicy = PolicyType.External,
-          MinContentHeight = 600,
-          MaxContentWidth = 400,
-          Child = root
-        }
+        FocusOnMap = true
       };
       window.Destroyed += (sender, args) =>
       {
@@ -155,28 +151,49 @@ namespace run_charlie
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
       window.Realized += (sender, args) =>
       {
-        root.PackStart(_title, false, false, 0);
-        root.PackStart(CreateModuleControl(), false, false, 0);
-        root.PackStart(CreateCanvas(), false, false, 0);
-        root.PackStart(CreateControls(), false, false, 0);
-        root.PackStart(CreateConfig(), true, true, 0);
-        root.ShowAll();
+        _root = CreateRoot();
+        var scroll = new ScrolledWindow
+        {
+          OverlayScrolling = false,
+          KineticScrolling = true,
+          VscrollbarPolicy = PolicyType.External,
+          MinContentHeight = 600,
+          MaxContentWidth = 400,
+          Child = _root
+        };
+        window.Child = scroll;
+        scroll.ShowAll();
         Init();
       };
       window.ShowAll();
     }
 
+    private void LoadModule(string complexPath)
+    {
+      var text = complexPath.Replace(" ", "");
+      var index = text.LastIndexOf(':');
+      if (index < 0) Logger.Warn("Please specify simulation by path:classname");
+        
+      LoadModule(text.Substring(0, index),
+        text.Substring(index + 1, text.Length - 1 - index));
+    }
+    
     private void LoadModule(string path, string className)
     {
+      if (!File.Exists(path))
+      {
+        Logger.Warn("Simulation file does not exist.");
+        return;
+      }
       if (_logicThread != null)
       {
-        Console.WriteLine("Please terminate simulation first.");
+        Logger.Warn("Please terminate simulation first.");
         return;
       }
 
-      _sim.End();
       if (_appDomain != null) AppDomain.Unload(_appDomain);
-      
+
+      var previousSim = _sim;
       try
       {
         var ads = new AppDomainSetup
@@ -187,23 +204,29 @@ namespace run_charlie
           ConfigurationFile =
             AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
         };
-        _appDomain = AppDomain.CreateDomain("Test", null, ads);
-        var loader = (Loader) _appDomain.CreateInstanceAndUnwrap( 
+        _appDomain = AppDomain.CreateDomain("SimulationDomain", null, ads);
+        var loader = (Loader) _appDomain.CreateInstanceAndUnwrap(
           typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
-      
+
         loader.LoadAssembly(path, className);
+        _sim.End();
         _sim = loader;
+
+        ((Label) _title.Children[0]).Text = _sim.GetTitle();
+        ((Label) _title.Children[1]).Text = _sim.GetDescr();
+        _configBuffer.Text = _sim.GetConfig();
+        Init();
+      }
+      catch (ArgumentException)
+      {
+        Logger.Warn("Class \"" + className + "\" does not exists in dll.");
+        _sim = previousSim;
       }
       catch (Exception e)
       {
-        Console.WriteLine(e);
-        _sim = new DefaultSimulation();
+        Logger.Warn(e.ToString());
+        _sim = previousSim;
       }
-      
-      ((Label) _title.Children[0]).Text = _sim.GetTitle();
-      ((Label) _title.Children[1]).Text = _sim.GetDescr();
-      _configBuffer.Text = _sim.GetConfig();
-      Init();
     }
     
     private static Dictionary<string, string> ParseConfig(string config)
@@ -254,7 +277,7 @@ namespace run_charlie
 
     private void Start(int steps)
     {
-      _logicThread = new Thread(() => UpdateSteps(steps));
+      _logicThread = new Thread(() => Update(steps));
       _logicThread.Start();
     }
     
@@ -263,13 +286,13 @@ namespace run_charlie
       _started = false;
     }
 
-    private void UpdateSteps(int steps)
+    private void Update(int steps)
     {
       var timer = Stopwatch.StartNew();
       while (steps > 0)
       {
         try { _sim.Update(20); }
-        catch (Exception e) { Console.WriteLine(e); }
+        catch (Exception e) { Logger.Warn(e.ToString()); }
         _iteration++;
         steps--;
       }
@@ -289,7 +312,7 @@ namespace run_charlie
         {
           _sim.Update(deltaTime);
         }
-        catch (Exception e) { Console.WriteLine(e); }
+        catch (Exception e) { Logger.Warn(e.ToString()); }
 
         _iteration++;
         Application.Invoke((sender, args) => AfterUpdate());
@@ -309,32 +332,56 @@ namespace run_charlie
                            ", e = " + _elapsedTime / 1000 + "s";
     }
 
+    private Box CreateRoot()
+    {
+      _title = new VBox(false, 5)
+      {
+        new Label(_sim.GetTitle()) {Name = "title", Xalign = 0},
+        new Label
+        {
+          Text = _sim.GetDescr(),
+          Wrap = true, 
+          Halign = Align.Start, 
+          Xalign = 0
+        }
+      };
+      _title.MarginTop = 15;
+      
+      var result = new VBox (false, 20)
+      {
+        MarginStart = 20, 
+        MarginEnd = 20
+      };
+      
+      result.PackStart(_title, false, false, 0);
+      result.PackStart(CreateModuleControl(), false, false, 0);
+      result.PackStart(CreateCanvas(), false, false, 0);
+      result.PackStart(CreateControls(), false, false, 0);
+      result.PackStart(CreateConfig(), true, true, 0);
+      result.ShowAll();
+      return result;
+    }
+    
     private Box CreateModuleControl()
     {
       var defaultPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory,
         "../RunCharlie/Examples.dll"
-      );
-      var defaultClassName = "run_charlie.DefaultSimulation";
-      var pathEntry = new Entry(defaultPath + " : " + defaultClassName)
+      ) + " : run_charlie.DefaultSimulation";
+      var pathEntry = new Entry(defaultPath)
       {
         PlaceholderText = "/path/to/your/module.dll", 
         HasFocus = false,
         HasFrame = false
       };
-      pathEntry.FocusGrabbed += (sender, args) => pathEntry.SelectRegion(0, 0);
+      pathEntry.FocusGrabbed += (sender, args) => 
+        pathEntry.SelectRegion(pathEntry.TextLength, pathEntry.TextLength);
       
       var loadBtn = new Button("Load");
       loadBtn.Clicked += (sender, args) =>
       {
-        var text = pathEntry.Text.Replace(" ", "");
-        var index = text.LastIndexOf(':');
-        if (index < 0) Console.WriteLine(
-          "Please specify simulation by path:classname");
-        
-        var path = text.Substring(0, index);
-        var className = text.Substring(index + 1, text.Length - 1 - index);
-        LoadModule(path, className);
+        LoadModule(pathEntry.Text);
+        _root.QueueDraw();
       };
       
       var result = new HBox(false, 15);
@@ -350,7 +397,7 @@ namespace run_charlie
 
       void Stop(object sender, EventArgs args)
       {
-        Console.WriteLine("Stop ");
+        Logger.Say("Stop ");
         
         this.Stop();
         startBtn.Label = "Start";
@@ -360,7 +407,7 @@ namespace run_charlie
 
       void Start(object sender, EventArgs args)
       {
-        Console.WriteLine("Start");
+        Logger.Say("Start");
         
         this.Start();
         startBtn.Label = "Stop ";
@@ -377,7 +424,7 @@ namespace run_charlie
         {
           if (_logicThread != null)
           {
-            Console.WriteLine("Waiting for update thread to finish.");
+            Logger.Say("Waiting for update thread to finish.");
             return;
           }
           Init();
@@ -397,7 +444,7 @@ namespace run_charlie
       {
         if (_logicThread != null) return;
         if (int.TryParse(stepsEntry.Text, out var x)) this.Start(x);
-        else Console.WriteLine("Please enter a number >= 0.");
+        else Logger.Warn("Please enter a number >= 0.");
       };
       var runSteps = new HBox(false, 0) {stepsEntry, stepsBtn};
       runSteps.Name = "runSteps";
@@ -443,7 +490,7 @@ namespace run_charlie
           args.Cr.Paint();
           s.Dispose();
         }
-        catch (Exception e) { Console.WriteLine(e); }
+        catch (Exception e) { Logger.Warn(e.ToString()); }
       };
 
       var result = new VBox(false, 7);
