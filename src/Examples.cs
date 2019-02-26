@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cairo;
-using Geometry;
 
 namespace run_charlie
 {
@@ -239,44 +238,41 @@ namespace run_charlie
     }
   }
   
-  /// <summary>
-  /// The antagonists.
-  /// </summary>
-  public class Drawing
-  {
-    private void DrawPolygon(Context cr, Polygon p)
-    {
-      if (p.Count == 0) return;
-
-      cr.SetSourceRGBA(0, 0, 0, 0.7);
-      cr.NewPath();
-      cr.MoveTo(p[0].X,
-        p[0].Y);
-
-      for (var i = 1; i < p.Count; i++)
-      {
-        cr.LineTo(p[i].X,
-          p[i].Y);
-      }
-
-      if (p[0] != p[p.Count - 1])
-      {
-        cr.MoveTo(p[0].X,
-          p[0].Y);
-      }
-
-      cr.ClosePath();
-      cr.Fill();
-    }
-
-    private void DrawSegment(Context cr, Segment s)
-    {
-      cr.SetSourceRGBA(1, 1, 1, 0.5);
-      cr.NewPath();
-      cr.MoveTo(s.Start.X, s.Start.Y);
-      cr.LineTo(s.End.X, s.End.Y);
-      cr.ClosePath();
-      cr.Stroke();
-    }
-  }
+//  public class Drawing
+//  {
+//    private void DrawPolygon(Context cr, Polygon p)
+//    {
+//      if (p.Count == 0) return;
+//
+//      cr.SetSourceRGBA(0, 0, 0, 0.7);
+//      cr.NewPath();
+//      cr.MoveTo(p[0].X,
+//        p[0].Y);
+//
+//      for (var i = 1; i < p.Count; i++)
+//      {
+//        cr.LineTo(p[i].X,
+//          p[i].Y);
+//      }
+//
+//      if (p[0] != p[p.Count - 1])
+//      {
+//        cr.MoveTo(p[0].X,
+//          p[0].Y);
+//      }
+//
+//      cr.ClosePath();
+//      cr.Fill();
+//    }
+//
+//    private void DrawSegment(Context cr, Segment s)
+//    {
+//      cr.SetSourceRGBA(1, 1, 1, 0.5);
+//      cr.NewPath();
+//      cr.MoveTo(s.Start.X, s.Start.Y);
+//      cr.LineTo(s.End.X, s.End.Y);
+//      cr.ClosePath();
+//      cr.Stroke();
+//    }
+//  }
 }
