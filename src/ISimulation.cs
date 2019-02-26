@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cairo;
 
@@ -9,6 +10,7 @@ namespace run_charlie
     string GetDescr();
     string GetConfig();
     void Init(Dictionary<string, string> config);
+    void End();
     void Update(long deltaTime);
     byte[] Render(int width, int height);
     string Log();
@@ -23,6 +25,13 @@ namespace run_charlie
     public abstract string GetConfig();
 
     public abstract void Init(Dictionary<string, string> config);
+    
+    public void End()
+    {
+      _surface.Dispose();
+      _ctx.Dispose();
+    }
+
     public abstract void Update(long deltaTime);
     public abstract void Render(Context ctx);
     

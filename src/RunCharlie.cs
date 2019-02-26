@@ -8,6 +8,7 @@ using Cairo;
 using Gdk;
 using Gtk;
 using Application = Gtk.Application;
+using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
@@ -15,16 +16,71 @@ using WindowType = Gtk.WindowType;
 
 namespace run_charlie
 {
-  internal class Loader : MarshalByRefObject 
+  internal class Loader : MarshalByRefObject, ISimulation
   {
-    public object LoadAssembly(string path, string className)
+    private Type _type;
+    private object _sim;
+    private MethodInfo _getTitle;
+    private MethodInfo _getDescr;
+    private MethodInfo _getConfig;
+    private MethodInfo _init;
+    private MethodInfo _update;
+    private MethodInfo _render;
+    private MethodInfo _end;
+    
+    public void LoadAssembly(string path, string className)
     {
       var assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
-      var type = assembly.GetType(className);
-      return Activator.CreateInstance(type);
-//      Console.WriteLine(a.GetType());
-//      var methodInfo = classType.GetMethod("Init");
-//      methodInfo.Invoke(a, new object[]{null});
+      _type = assembly.GetType(className);
+      _sim = assembly.CreateInstance(className);
+      _getTitle = _type.GetMethod("GetTitle");
+      _getDescr = _type.GetMethod("GetDescr");
+      _getConfig = _type.GetMethod("GetConfig");
+      _init = _type.GetMethod("Init");
+      _end = _type.GetMethod("End");
+      _update = _type.GetMethod("Update");
+      _render = _type.GetMethod("Render", new []{typeof(int), typeof(int)});
+    }
+
+    public string GetTitle()
+    {
+      return (string) _getTitle.Invoke(_sim, new object[0]);
+    }
+
+    public string GetDescr()
+    {
+      return (string) _getDescr.Invoke(_sim, new object[0]);
+    }
+    
+    public string GetConfig()
+    {
+      return (string) _getConfig.Invoke(_sim, new object[0]);
+    }
+
+    public void Init(Dictionary<string, string> config)
+    {
+      _init.Invoke(_sim, new object[] {config});
+    }
+
+    public void End()
+    {
+      _end.Invoke(_sim, new object[0]);
+    }
+
+    public void Update(long dt)
+    {
+      _update.Invoke(_sim, new object[] {dt});
+    }
+
+    public byte[] Render(int width, int height)
+    {
+      return (byte[]) _render.Invoke(_sim, new object[] {width, height});
+    }
+
+    public string Log()
+    {
+      var method = _type.GetMethod("Log");
+      return (string) method.Invoke(_sim, new object[0]);
     }
   }
   
@@ -110,7 +166,6 @@ namespace run_charlie
       window.ShowAll();
     }
 
-    // Todo: Implement this method
     private void LoadModule(string path, string className)
     {
       if (_logicThread != null)
@@ -118,42 +173,37 @@ namespace run_charlie
         Console.WriteLine("Please terminate simulation first.");
         return;
       }
+
+      _sim.End();
       if (_appDomain != null) AppDomain.Unload(_appDomain);
       
-//      var ads = new AppDomainSetup
-//      {
-//        ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
-//        DisallowBindingRedirects = false,
-//        DisallowCodeDownload = true,
-//        ConfigurationFile =
-//          AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
-//      };
-//      _appDomain = AppDomain.CreateDomain("Test", null, ads);
-//      var loader = (Loader) _appDomain.CreateInstanceAndUnwrap( 
-//        typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
-      
-//      var obj = loader.LoadAssembly(path, "SineExample");
-//      var methodInfo = obj.GetType().GetMethod("Init");
-//      methodInfo.Invoke(obj, new object[]{null});
-//      Console.WriteLine(methodInfo);
-      
-      var setup = new AppDomainSetup 
+      try
       {
-        ApplicationName = path, 
-        ConfigurationFile = 
-          AppDomain.CurrentDomain.SetupInformation.ConfigurationFile,
-        ApplicationBase = AppDomain.CurrentDomain.BaseDirectory 
-      };
-      var appDomain = AppDomain.CreateDomain(
-        setup.ApplicationName,
-        AppDomain.CurrentDomain.Evidence, 
-        setup);
-      var x = appDomain.CreateInstanceAndUnwrap(path, "SineExample") as ISimulation;
-//      x.Init(new Dictionary<string, string>());
-
-//      ((Label) _title.Children[0]).Text = _sim.Title;
-//      ((Label) _title.Children[1]).Text = _sim.Descr;
-//      Init();
+        var ads = new AppDomainSetup
+        {
+          ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
+          DisallowBindingRedirects = false,
+          DisallowCodeDownload = true,
+          ConfigurationFile =
+            AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
+        };
+        _appDomain = AppDomain.CreateDomain("Test", null, ads);
+        var loader = (Loader) _appDomain.CreateInstanceAndUnwrap( 
+          typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
+      
+        loader.LoadAssembly(path, className);
+        _sim = loader;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine(e);
+        _sim = new DefaultSimulation();
+      }
+      
+      ((Label) _title.Children[0]).Text = _sim.GetTitle();
+      ((Label) _title.Children[1]).Text = _sim.GetDescr();
+      _configBuffer.Text = _sim.GetConfig();
+      Init();
     }
     
     private static Dictionary<string, string> ParseConfig(string config)
@@ -261,11 +311,14 @@ namespace run_charlie
 
     private Box CreateModuleControl()
     {
-      var pathEntry = new Entry(
-        "/Users/littlebrother/Projects/4-Uni/bachelor/" +
-        "sensor-positioning/bin/SineExample.dll")
+      var defaultPath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory,
+        "../RunCharlie/Examples.dll"
+      );
+      var defaultClassName = "run_charlie.DefaultSimulation";
+      var pathEntry = new Entry(defaultPath + " : " + defaultClassName)
       {
-        PlaceholderText = "/path/to/your/module/...", 
+        PlaceholderText = "/path/to/your/module.dll", 
         HasFocus = false,
         HasFrame = false
       };
@@ -274,8 +327,14 @@ namespace run_charlie
       var loadBtn = new Button("Load");
       loadBtn.Clicked += (sender, args) =>
       {
-        try {LoadModule(pathEntry.Text, "SineExample");}
-        catch (Exception e) {Console.WriteLine(e);}
+        var text = pathEntry.Text.Replace(" ", "");
+        var index = text.LastIndexOf(':');
+        if (index < 0) Console.WriteLine(
+          "Please specify simulation by path:classname");
+        
+        var path = text.Substring(0, index);
+        var className = text.Substring(index + 1, text.Length - 1 - index);
+        LoadModule(path, className);
       };
       
       var result = new HBox(false, 15);
