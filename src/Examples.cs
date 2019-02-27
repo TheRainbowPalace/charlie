@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cairo;
+using Optimization;
 
 namespace run_charlie
 {
@@ -100,20 +101,6 @@ namespace run_charlie
              "Shift = 0";
     }
 
-    private static double GetDouble(Dictionary<string, string> config,
-      string key, double backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return float.TryParse(config[key], out var x) ? x : backup;
-    }
-
-    private static int GetInt(Dictionary<string, string> config,
-      string key, int backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return int.TryParse(config[key], out var x) ? x : backup;
-    }
-
     public override void Init(Dictionary<string, string> config)
     {
       _y = 200;
@@ -175,20 +162,6 @@ namespace run_charlie
              "SizeTeamB = 3";
     }
 
-    private static double GetDouble(Dictionary<string, string> config,
-      string key, double backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return float.TryParse(config[key], out var x) ? x : backup;
-    }
-
-    private static int GetInt(Dictionary<string, string> config,
-      string key, int backup)
-    {
-      if (!config.ContainsKey(key)) return backup;
-      return int.TryParse(config[key], out var x) ? x : backup;
-    }
-
     public override void Init(Dictionary<string, string> config)
     {
       _sizeTeamA = 4;
@@ -223,18 +196,81 @@ namespace run_charlie
     
     public override void Render(Context ctx)
     {
-      var surface = new ImageSurface(Format.ARGB32, 400, 400);
-      var ct = new Context(surface);
+      foreach (var player in _teamA) RenderPlayer(ctx, player, _colorTeamA);
+      foreach (var player in _teamB) RenderPlayer(ctx, player, _colorTeamB);
+    }
+  }
+
+  public class SwarmExample : AbstractSimulation
+  {
+    private Swarm _swarm;
+    private int _xOffset;
+    private int _yOffset;
+    
+    public override string GetTitle()
+    {
+      return "SWAAARM";
+    }
+
+    public override string GetDescr()
+    {
+      return "Present yourself with a particle swarm and never forget to be" +
+             "amazing.";
+    }
+
+    public override string GetConfig()
+    {
+      return "XOffset = 200\n" +
+             "YOffset = 200\n";
+    }
+
+    public override void Init(Dictionary<string, string> config)
+    {
+      _xOffset = GetInt(config, "XOffset", 200);
+      _yOffset = GetInt(config, "YOffset", 200);
       
-      foreach (var player in _teamA) RenderPlayer(ct, player, _colorTeamA);
-//      foreach (var player in _teamB) RenderPlayer(ctx, player, _colorTeamB);
+      var sp = new SearchSpace(2, 100);
+      _swarm = Pso.SwarmSpso2011(sp, OptimizationFct.SphereFct);
+      _swarm.Initialize();
+    }
+
+    public override void Update(long deltaTime)
+    {
+      _swarm.IterateOnce();
+    }
+
+    public override void Render(Context ctx)
+    {
+      for (var i = 0; i < _swarm.Particles.Count; i++)
+      {
+        var p = _swarm.Particles[i];
+        ctx.SetSourceColor(new Color(0.769, 0.282, 0.295));
+        ctx.LineWidth = 1;
+        ctx.Arc(
+          _xOffset + p.Position[0], 
+          _yOffset + p.Position[1], 
+          5, 0, 2 * Math.PI);
+        ctx.ClosePath();
+        ctx.Fill();
+      }
       
-      var s = new ImageSurface(surface.Data, Format.ARGB32, 400, 400, 1600);
-      ctx.SetSourceSurface(s, 0, 0);
-      ctx.Paint();
-      ct.Dispose();
-      surface.Dispose();
-      s.Dispose();
+      var globalBest = "Best: (";
+      for (var i = 0; i < _swarm.GlobalBest.Length; i++)
+      {
+        globalBest += Math.Round(_swarm.GlobalBest[i], 3);
+        if (i < _swarm.GlobalBest.Length - 1) globalBest += " ";
+      }
+
+      globalBest += ") - " + Math.Round(_swarm.GlobalBestValue, 3);
+      
+      ctx.SetSourceColor(new Color(.7, .7, .7));
+      ctx.SetFontSize(13);
+      ctx.MoveTo(12, 20);
+      ctx.ShowText(globalBest);
+      
+      ctx.Rectangle(_xOffset - 100, _xOffset - 100, 200, 200);
+      ctx.LineWidth = 1;
+      ctx.Stroke();
     }
   }
   

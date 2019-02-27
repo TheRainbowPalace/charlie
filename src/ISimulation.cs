@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Cairo;
 
@@ -24,6 +23,20 @@ namespace run_charlie
     public abstract string GetDescr();
     public abstract string GetConfig();
 
+    public static double GetDouble(Dictionary<string, string> config,
+      string key, double backup)
+    {
+      if (!config.ContainsKey(key)) return backup;
+      return float.TryParse(config[key], out var x) ? x : backup;
+    }
+
+    public static int GetInt(Dictionary<string, string> config,
+      string key, int backup)
+    {
+      if (!config.ContainsKey(key)) return backup;
+      return int.TryParse(config[key], out var x) ? x : backup;
+    }
+    
     public abstract void Init(Dictionary<string, string> config);
     
     public void End()
