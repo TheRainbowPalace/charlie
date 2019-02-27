@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using M = System.Math;
 
-namespace ParticleSwarmOptimization
+namespace Optimization
 {
     public static class OptimizationFct
     {

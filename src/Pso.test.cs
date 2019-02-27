@@ -3,9 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Opt = ParticleSwarmOptimization.OptimizationFct;
+using Opt = Optimization.OptimizationFct;
 
-namespace ParticleSwarmOptimization
+namespace Optimization
 {
     public static class PsoTest
     {
@@ -59,7 +59,7 @@ namespace ParticleSwarmOptimization
                 if (particle.Position.Length == dims &&
                     particle.PreviousBest.Length.Equals(dims) &&
                     particle.Velocity.Length == dims &&
-                    particle.NeighboursBest.Length == dims &&
+                    particle.LocalBest.Length == dims &&
                     particle.Neighbours.Count >= 1 &&
                     particle.Neighbours.Count == 3) continue;
 
@@ -95,79 +95,79 @@ namespace ParticleSwarmOptimization
         private static void TestWithSphereFct()
         {
             var sp = new SearchSpace(16, 100);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.SphereFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.SphereFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.SphereFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.SphereFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.SphereFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.SphereFct);
 
             Console.WriteLine("Sphere function:");
-            TestPso("SPSO 2006", swarm2006, Opt.SPHERE_FCT_OPT);
-            TestPso("SPSO 2007", swarm2007, Opt.SPHERE_FCT_OPT);
-            TestPso("SPSO 2011", swarm2011, Opt.SPHERE_FCT_OPT);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.SPHERE_FCT_OPT);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.SPHERE_FCT_OPT);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.SPHERE_FCT_OPT);
         }
 
         private static void TestWithStyblinskiTangFct()
         {
             var sp = new SearchSpace(2, 10);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.StyblinskiTangFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.StyblinskiTangFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.StyblinskiTangFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.StyblinskiTangFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.StyblinskiTangFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.StyblinskiTangFct);
 
             Console.WriteLine("Styblinski-Tang function:");
-            TestPso("SPSO 2006", swarm2006, Opt.StyblinskiTangOpt(2), 200);
-            TestPso("SPSO 2007", swarm2007, Opt.StyblinskiTangOpt(2), 200);
-            TestPso("SPSO 2011", swarm2011, Opt.StyblinskiTangOpt(2), 200);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.StyblinskiTangOpt(2), 200);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.StyblinskiTangOpt(2), 200);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.StyblinskiTangOpt(2), 200);
         }
 
         private static void TestWithMcCormickFct()
         {
             var sp = new SearchSpace(2, 20);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.McCormickFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.McCormickFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.McCormickFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.McCormickFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.McCormickFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.McCormickFct);
             
             Console.WriteLine("McCormick function:");
-            TestPso("SPSO 2006", swarm2006, Opt.MC_CORMICK_FCT_OPT);
-            TestPso("SPSO 2007", swarm2007, Opt.MC_CORMICK_FCT_OPT);
-            TestPso("SPSO 2011", swarm2011, Opt.MC_CORMICK_FCT_OPT);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.MC_CORMICK_FCT_OPT);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.MC_CORMICK_FCT_OPT);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.MC_CORMICK_FCT_OPT);
         }
        
         private static void TestWithHoelderTableFct()
         {
             var sp = new SearchSpace(2, 10);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.HoelderTableFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.HoelderTableFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.HoelderTableFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.HoelderTableFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.HoelderTableFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.HoelderTableFct);
             
             Console.WriteLine("Hoelder-Table function:");
-            TestPso("SPSO 2006", swarm2006, Opt.HOELDER_TABLE_FCT_OPT);
-            TestPso("SPSO 2007", swarm2007, Opt.HOELDER_TABLE_FCT_OPT);
-            TestPso("SPSO 2011", swarm2011, Opt.HOELDER_TABLE_FCT_OPT, 200);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.HOELDER_TABLE_FCT_OPT);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.HOELDER_TABLE_FCT_OPT);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.HOELDER_TABLE_FCT_OPT, 200);
         }
 
         private static void TestWithThreeCamelHumpFct()
         {
             var sp = new SearchSpace(2, 100);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.ThreeHumpCamelFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.ThreeHumpCamelFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.ThreeHumpCamelFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.ThreeHumpCamelFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.ThreeHumpCamelFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.ThreeHumpCamelFct);
             
             Console.WriteLine("Three-Hump-Camel function:");
-            TestPso("SPSO 2006", swarm2006, Opt.THREE_HUMP_CAMEL_FCT_OPT);
-            TestPso("SPSO 2007", swarm2007, Opt.THREE_HUMP_CAMEL_FCT_OPT);
-            TestPso("SPSO 2011", swarm2011, Opt.THREE_HUMP_CAMEL_FCT_OPT);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.THREE_HUMP_CAMEL_FCT_OPT);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.THREE_HUMP_CAMEL_FCT_OPT);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.THREE_HUMP_CAMEL_FCT_OPT);
         }
 
         private static void TestWithHimmelblauFct()
         {
             var sp = new SearchSpace(2, 100);
-            var swarm2006 = Pso.SwarmSpso2006(sp, Opt.HimmelblauFct);
-            var swarm2007 = Pso.SwarmSpso2007(sp, Opt.HimmelblauFct);
-            var swarm2011 = Pso.SwarmSpso2011(sp, Opt.HimmelblauFct);
+            var swarm2006 = Pso.SwarmSpso2006(sp, OptimizationFct.HimmelblauFct);
+            var swarm2007 = Pso.SwarmSpso2007(sp, OptimizationFct.HimmelblauFct);
+            var swarm2011 = Pso.SwarmSpso2011(sp, OptimizationFct.HimmelblauFct);
             
             Console.WriteLine("Himmelblau function:");
-            TestPso("SPSO 2006", swarm2006, Opt.HIMMELBLAU_FCT_OPT);
-            TestPso("SPSO 2007", swarm2007, Opt.HIMMELBLAU_FCT_OPT);
-            TestPso("SPSO 2011", swarm2011, Opt.HIMMELBLAU_FCT_OPT);
+            TestPso("SPSO 2006", swarm2006, OptimizationFct.HIMMELBLAU_FCT_OPT);
+            TestPso("SPSO 2007", swarm2007, OptimizationFct.HIMMELBLAU_FCT_OPT);
+            TestPso("SPSO 2011", swarm2011, OptimizationFct.HIMMELBLAU_FCT_OPT);
         }
 
         private static void TestFindsMultipleRoots()
@@ -175,7 +175,7 @@ namespace ParticleSwarmOptimization
             var sp = new SearchSpace(2, 100);
             for (var i = 0; i < 10000; i++)
             {
-                var swarm = Pso.SwarmSpso2011(sp, Opt.HimmelblauFct);
+                var swarm = Pso.SwarmSpso2011(sp, OptimizationFct.HimmelblauFct);
                 swarm.Initialize();
                 swarm.IterateMaxIterations(100);
                 
@@ -190,10 +190,10 @@ namespace ParticleSwarmOptimization
         private static void DebugPso()
         {
             var sp = new SearchSpace(10, 100);
-            var swarm = Pso.SwarmSpso2011(sp, Opt.StyblinskiTangFct);
+            var swarm = Pso.SwarmSpso2011(sp, OptimizationFct.StyblinskiTangFct);
             swarm.Initialize();
             
-            Console.WriteLine("Optimum: " + Opt.StyblinskiTangOpt(10));
+            Console.WriteLine("Optimum: " + OptimizationFct.StyblinskiTangOpt(10));
             
             for (var i = 0; i < 10000; i++)
             {
