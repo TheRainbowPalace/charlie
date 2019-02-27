@@ -14,7 +14,6 @@ using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
 
-
 namespace run_charlie
 {
   internal class Loader : MarshalByRefObject, ISimulation
@@ -107,10 +106,18 @@ namespace run_charlie
     }
   }
   
+  // Todo: Block Load button until simulation is loaded
+  // Todo: Remove delta time from Simulation.Update
+  // Todo: Fix simulations are not hot reloading
+  // Todo: Stop logic thread on Ctrl+C
+  // Todo: Hide titlebar on MacOs
+  // Todo: Fix low quality rendering duo to ImageSurface size
+  // Todo: Fix Rendering is not done on the logic thread
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
     private bool _started;
+    private bool _loading;
     private long _iteration;
     private long _elapsedTime;
     private ISimulation _sim;
