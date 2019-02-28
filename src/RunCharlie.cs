@@ -232,7 +232,6 @@ namespace run_charlie
         ((Label) _title.Children[0]).Text = _sim.GetTitle();
         ((Label) _title.Children[1]).Text = _sim.GetDescr();
         _configBuffer.Text = _sim.GetConfig();
-        Init();
       }
       catch (ArgumentException)
       {
@@ -417,6 +416,7 @@ namespace run_charlie
       loadBtn.Clicked += (sender, args) =>
       {
         LoadModule(pathEntry.Text);
+        Init();
         _root.QueueDraw();
       };
       
