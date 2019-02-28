@@ -153,34 +153,40 @@ namespace run_charlie
         HeightRequest = 600,
         Title = "",
         Role = "RunCharlie",
-        Resizable = false,
-        FocusOnMap = true
+        Resizable = false
       };
       window.Destroyed += (sender, args) =>
       {
-        Application.Quit();
         Stop();
+        Application.Quit();
       };
       window.Move(100, 100);
       window.SetIconFromFile(
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
-      window.Realized += (sender, args) =>
-      {
-        _root = CreateRoot();
-        var scroll = new ScrolledWindow
-        {
-          OverlayScrolling = false,
-          KineticScrolling = true,
-          VscrollbarPolicy = PolicyType.External,
-          MinContentHeight = 600,
-          MaxContentWidth = 400,
-          Child = _root
-        };
-        window.Child = scroll;
-        scroll.ShowAll();
-        Init();
-      };
       window.ShowAll();
+      
+      _root = CreateRoot();
+        
+      var scroll = new ScrolledWindow
+      {
+        OverlayScrolling = false,
+        KineticScrolling = true,
+        VscrollbarPolicy = PolicyType.External,
+        MinContentHeight = 600,
+        MaxContentWidth = 400,
+        Child = _root
+      };
+        
+      window.Child = scroll;
+      scroll.ShowAll();
+      
+      void Init (object o, DrawnArgs a)
+      {
+        this.Init();
+        _canvas.Drawn -= Init;
+      }
+
+      _canvas.Drawn += Init;
     }
 
     private void LoadModule(string complexPath)
