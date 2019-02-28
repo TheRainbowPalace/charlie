@@ -105,24 +105,32 @@ namespace run_charlie
       Console.WriteLine(text);
     }
   }
-  
-  // Todo: Block Load button until simulation is loaded
+
+  // Done: Fix Rendering is not done on the logic thread
+  // Done: Block Load button until simulation is loaded
+  // Done: Fix first initialization is done to early
   // Todo: Remove delta time from Simulation.Update
   // Todo: Fix simulations are not hot reloading
   // Todo: Stop logic thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
   // Todo: Fix low quality rendering duo to ImageSurface size
-  // Todo: Fix Rendering is not done on the logic thread
+  // Todo: Add app settings component (Set preferences for app)  
+  // Todo: Add task-runner component (Allows to run scheduled simulations)
+  // Todo: Add button to abort simulation
+  // Todo: Add a commandline version of RunCharlie (> charlie file -params)
+  // Todo: Add magnetic scroll
+  // Todo: Create root node asynchronously
+  // Todo: Select window after creation
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
     private bool _started;
-    private bool _loading;
     private long _iteration;
     private long _elapsedTime;
     private ISimulation _sim;
     private Thread _logicThread;
     private AppDomain _appDomain;
+    private byte[] _renderData;
 
     private Box _root;
     private DrawingArea _canvas;
@@ -271,9 +279,16 @@ namespace run_charlie
     private void Init()
     {
       var config = ParseConfig(_configBuffer.Text);
-      _sim.Init(config);
       _iteration = 0;
       _elapsedTime = 0;
+      try
+      {
+        _sim.Init(config);
+        _renderData = _sim.Render(
+          _canvas.AllocatedWidth,
+          _canvas.AllocatedHeight);
+      }
+      catch (Exception e) { Logger.Warn(e.ToString()); }
       AfterUpdate();
     }
 
@@ -307,6 +322,15 @@ namespace run_charlie
       }
       timer.Stop();
       _elapsedTime += timer.ElapsedMilliseconds;
+
+      try
+      {
+        _renderData = _sim.Render(
+          _canvas.AllocatedWidth,
+          _canvas.AllocatedHeight);
+      }
+      catch (Exception e) { Logger.Warn(e.ToString()); }
+      
       Application.Invoke((sender, args) => AfterUpdate());
       _logicThread = null;
     }
@@ -320,16 +344,19 @@ namespace run_charlie
         try
         {
           _sim.Update(deltaTime);
+          _renderData = _sim.Render(
+            _canvas.AllocatedWidth, 
+            _canvas.AllocatedHeight);
         }
         catch (Exception e) { Logger.Warn(e.ToString()); }
 
-        _iteration++;
-        Application.Invoke((sender, args) => AfterUpdate());
         Thread.Sleep(20);
+        _iteration++;
         
         timer.Stop();
         deltaTime = timer.ElapsedMilliseconds;
         _elapsedTime += deltaTime;
+        Application.Invoke((sender, args) => AfterUpdate());
       }
       _logicThread = null;
     }
@@ -337,8 +364,8 @@ namespace run_charlie
     private void AfterUpdate()
     {
       _canvas.QueueDraw();
-      _iterationLbl.Text = "i = " + _iteration + 
-                           ", e = " + _elapsedTime / 1000 + "s";
+      _iterationLbl.Text = 
+        "i = " + _iteration + ", e = " + _elapsedTime / 1000 + "s";
     }
 
     private Box CreateRoot()
@@ -406,8 +433,6 @@ namespace run_charlie
 
       void Stop(object sender, EventArgs args)
       {
-        Logger.Say("Stop ");
-        
         this.Stop();
         startBtn.Label = "Start";
         startBtn.Clicked -= Stop;
@@ -416,8 +441,6 @@ namespace run_charlie
 
       void Start(object sender, EventArgs args)
       {
-        Logger.Say("Start");
-        
         this.Start();
         startBtn.Label = "Stop ";
         startBtn.Clicked -= Start;
@@ -486,20 +509,15 @@ namespace run_charlie
         args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
         args.Cr.Stroke();
 
-        try
-        {
-          var data = _sim.Render(
-            _canvas.AllocatedWidth, 
-            _canvas.AllocatedHeight);
-          // Todo set Stride dynamically
-          var s = new ImageSurface(data, Format.ARGB32, 
-            _canvas.AllocatedWidth, 
-            _canvas.AllocatedHeight, 1600);
-          args.Cr.SetSourceSurface(s, 0, 0);
-          args.Cr.Paint();
-          s.Dispose();
-        }
-        catch (Exception e) { Logger.Warn(e.ToString()); }
+        if (_renderData == null) return;
+        
+        // Todo set Stride dynamically
+        var s = new ImageSurface(_renderData, Format.ARGB32, 
+          _canvas.AllocatedWidth, 
+          _canvas.AllocatedHeight, 1600);
+        args.Cr.SetSourceSurface(s, 0, 0);
+        args.Cr.Paint();
+        s.Dispose();
       };
 
       var result = new VBox(false, 7);
