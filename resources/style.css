@@ -3,6 +3,14 @@ window {
     font-family: Andale Mono, monospace;
 }
 
+#root {
+    margin-top: 15px;
+}
+
+#root > * {
+    margin: 0 20px;
+}
+
 #title {
     font-size: xx-large;
     font-weight: 100;
@@ -52,18 +60,20 @@ entry selection {
 }
 
 tooltip {
+    font-size: 20px;
     border: none;
-    padding: 2px 10px;
+    border-radius: 0;
 }
 
 textview {
-    background: #C4C4C4;
-    padding: 10px 5px;
-    caret-color: #010101;
+    padding: 10px 5px 10px 0;
+    font-size: medium;
+    background: transparent;
+    caret-color: #C4C4C4;
 }
 textview text {
     background: transparent;
-    color: #1A1B1B;
+    color: #C4C4C4;
 }
 textview text selection {
     background: #C4484B;
@@ -71,4 +81,15 @@ textview text selection {
 
 scrolledwindow undershoot, scrolledwindow overshoot {
     background: none;
+}
+
+#aboutTitle {
+    font-size: medium;
+    padding-bottom: 3px;
+}
+#about {
+    font-size: small;
+    background: #010101;
+    margin: 0;
+    padding: 10px 20px;
 }

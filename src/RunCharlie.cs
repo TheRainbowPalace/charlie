@@ -110,21 +110,32 @@ namespace run_charlie
   // Done: Block Load button until simulation is loaded
   // Done: Fix first initialization is done to early
   // Done: Fix simulations are not hot reloading
+  // Done: Add about section
   // Todo: Remove delta time from Simulation.Update
   // Todo: Stop logic thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
   // Todo: Fix low quality rendering duo to ImageSurface size
   // Todo: Create root node asynchronously
   // Todo: Select window after creation
-  // Todo: Add app settings component (Set preferences for app)  
+  // Todo: Fix when text flows over size of config input
+  // Todo: Add app settings component (dark or light mode etc.)  
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add button to abort simulation
   // Todo: Add a commandline version of RunCharlie (> charlie file -params)
   // Todo: Add magnetic scroll
+  // Todo: Add simulation speed option
+  // Todo: Add option to set output (logging & picture) path
+  // Todo: Add option to enable and disable logging
+  // Todo: Add selector for logging output format
+  // Todo: Add button to save pictures
+  // Todo: Add timeline to go back in time
+  // Todo: Add syntax highlighting to config editor 
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
     public const string Version = "1.0.0";
+    public const string Author = "Jakob Rieke";
+    public const string Copyright = "Copyright © 2019 Jakob Rieke";
     private bool _started;
     private long _iteration;
     private long _elapsedTime;
@@ -381,20 +392,15 @@ namespace run_charlie
           Xalign = 0
         }
       };
-      _title.MarginTop = 15;
-      
-      var result = new VBox (false, 20)
-      {
-        MarginStart = 20, 
-        MarginEnd = 20
-      };
-      
-      result.PackStart(_title, false, false, 0);
-      result.PackStart(CreateModuleControl(), false, false, 0);
-      result.PackStart(CreateCanvas(), false, false, 0);
-      result.PackStart(CreateControls(), false, false, 0);
-      result.PackStart(CreateConfig(), true, true, 0);
-      result.ShowAll();
+
+      var result = new VBox(false, 20) {Name = "root"};
+      result.Add(_title);
+      result.Add(CreateModuleControl());
+      result.Add(CreateCanvas());
+      result.Add(CreateControls());
+      result.Add(CreateConfig());
+      result.Add(CreateAbout());
+      result.SizeAllocated += (o, a) => result.QueueDraw();
       return result;
     }
     
@@ -425,7 +431,6 @@ namespace run_charlie
         }
         catch (Exception e) { Logger.Warn(e.ToString()); }
         Init();
-        _root.QueueDraw();
       };
       
       var result = new HBox(false, 15);
@@ -547,7 +552,6 @@ namespace run_charlie
       };
       var textView = new TextView(_configBuffer)
       {
-        Monospace = true,
         WidthRequest = 400,
         Name = "configEntry",
         Indent = 3,
@@ -556,6 +560,23 @@ namespace run_charlie
       var result = new VBox(false, 7);
       result.PackStart(title, false, false, 0);
       result.PackStart(textView, true, true, 0);
+      return result;
+    }
+
+    private Box CreateAbout()
+    {
+      var aboutTitle = new Label("About")
+      {
+        Name = "aboutTitle", Halign = Align.Start
+      };
+      var result =  new VBox(false, 1)
+      {
+        aboutTitle,
+        new Label("RunCharlie v" + Version) {Halign = Align.Start},
+        new Label(Author) {Halign = Align.Start},
+        new Label(Copyright) {Halign = Align.Start}
+      };
+      result.Name = "about";
       return result;
     }
   }
