@@ -9,6 +9,7 @@ using Cairo;
 using Gdk;
 using Gtk;
 using Application = Gtk.Application;
+using Key = Gtk.Key;
 using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
@@ -175,20 +176,43 @@ namespace run_charlie
       window.Move(100, 100);
       window.SetIconFromFile(
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
+
+      var prefPage = new VBox {Name = "prefPage"};
+      prefPage.Add(new Label("Preferences"));
+      prefPage.ShowAll();
       
-      _root = CreateRoot();
-        
-      var scroll = new ScrolledWindow
+      var resultsPage = new VBox {Name = "resultsPage"};
+      resultsPage.Add(new Label("Results"));
+      resultsPage.ShowAll();
+      
+      var simPageContent = CreateRoot();
+      var simPage = new ScrolledWindow
       {
         OverlayScrolling = false,
         KineticScrolling = true,
         VscrollbarPolicy = PolicyType.External,
+        HscrollbarPolicy = PolicyType.Never,
         MinContentHeight = 600,
         MaxContentWidth = 400,
-        Child = _root
+        Child = simPageContent
       };
-        
-      window.Child = scroll;
+      void SetPage(Widget page)
+      {
+        if (window.Child == page) return;
+        window.Remove(window.Child);
+        window.Add(page);
+      }
+
+      ModifierType mod;
+      window.KeyPressEvent += (o, a) =>
+      {
+        mod = a.Event.State & Accelerator.DefaultModMask;
+        if (mod != ModifierType.ControlMask) return;
+        if (a.Event.Key == Gdk.Key.Key_1) SetPage(prefPage);
+        else if (a.Event.Key == Gdk.Key.Key_2) SetPage(simPage);
+        else if (a.Event.Key == Gdk.Key.Key_3) SetPage(resultsPage);
+      };
+      window.Child = simPage;
       window.ShowAll();
       
       void Init (object o, DrawnArgs a)
