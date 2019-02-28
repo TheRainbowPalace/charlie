@@ -109,21 +109,22 @@ namespace run_charlie
   // Done: Fix Rendering is not done on the logic thread
   // Done: Block Load button until simulation is loaded
   // Done: Fix first initialization is done to early
+  // Done: Fix simulations are not hot reloading
   // Todo: Remove delta time from Simulation.Update
-  // Todo: Fix simulations are not hot reloading
   // Todo: Stop logic thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
   // Todo: Fix low quality rendering duo to ImageSurface size
+  // Todo: Create root node asynchronously
+  // Todo: Select window after creation
   // Todo: Add app settings component (Set preferences for app)  
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add button to abort simulation
   // Todo: Add a commandline version of RunCharlie (> charlie file -params)
   // Todo: Add magnetic scroll
-  // Todo: Create root node asynchronously
-  // Todo: Select window after creation
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
+    public const string Version = "1.0.0";
     private bool _started;
     private long _iteration;
     private long _elapsedTime;
@@ -163,7 +164,6 @@ namespace run_charlie
       window.Move(100, 100);
       window.SetIconFromFile(
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
-      window.ShowAll();
       
       _root = CreateRoot();
         
@@ -178,7 +178,7 @@ namespace run_charlie
       };
         
       window.Child = scroll;
-      scroll.ShowAll();
+      window.ShowAll();
       
       void Init (object o, DrawnArgs a)
       {
@@ -212,9 +212,13 @@ namespace run_charlie
         return;
       }
 
-      var previousSim = _sim;
+      try { _sim.End(); }
+      catch (Exception e) { Logger.Warn(e.ToString()); }
+      
       try
       {
+        if (_appDomain != null) AppDomain.Unload(_appDomain);
+        
         var ads = new AppDomainSetup
         {
           ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
@@ -223,31 +227,22 @@ namespace run_charlie
           ConfigurationFile =
             AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
         };
-        var appDomain = AppDomain.CreateDomain("SimulationDomain", null, ads);
-        var loader = (Loader) appDomain.CreateInstanceAndUnwrap(
+        _appDomain = AppDomain.CreateDomain("SimulationDomain", null, ads);
+        var loader = (Loader) _appDomain.CreateInstanceAndUnwrap(
           typeof(Loader).Assembly.FullName, typeof(Loader).FullName);
 
         loader.LoadAssembly(path, className);
-        _sim.End();
         _sim = loader;
-
-        if (_appDomain != null) AppDomain.Unload(_appDomain);
-
-        _appDomain = appDomain;
-        
-        ((Label) _title.Children[0]).Text = _sim.GetTitle();
-        ((Label) _title.Children[1]).Text = _sim.GetDescr();
-        _configBuffer.Text = _sim.GetConfig();
       }
       catch (ArgumentException)
       {
         Logger.Warn("Class \"" + className + "\" does not exists in dll.");
-        _sim = previousSim;
+        _sim = new DefaultSimulation();
       }
       catch (Exception e)
       {
         Logger.Warn(e.ToString());
-        _sim = previousSim;
+        _sim = new DefaultSimulation();
       }
     }
     
@@ -422,6 +417,13 @@ namespace run_charlie
       loadBtn.Clicked += (sender, args) =>
       {
         LoadModule(pathEntry.Text);
+        try
+        {
+          ((Label) _title.Children[0]).Text = _sim.GetTitle();
+          ((Label) _title.Children[1]).Text = _sim.GetDescr();
+          _configBuffer.Text = _sim.GetConfig();
+        }
+        catch (Exception e) { Logger.Warn(e.ToString()); }
         Init();
         _root.QueueDraw();
       };
