@@ -111,13 +111,14 @@ namespace run_charlie
   // Done: Fix first initialization is done to early
   // Done: Fix simulations are not hot reloading
   // Done: Add about section
+  // Done: Fix text overflow on long config input lines
+  // Done: Select window after creation
   // Todo: Remove delta time from Simulation.Update
-  // Todo: Stop logic thread on Ctrl+C
+  // Todo: Stop simulation thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
   // Todo: Fix low quality rendering duo to ImageSurface size
   // Todo: Create root node asynchronously
-  // Todo: Select window after creation
-  // Todo: Fix when text flows over size of config input
+  // Todo: Fix text overflow on too many iterations / time
   // Todo: Add app settings component (dark or light mode etc.)  
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add button to abort simulation
@@ -129,7 +130,7 @@ namespace run_charlie
   // Todo: Add selector for logging output format
   // Todo: Add button to save pictures
   // Todo: Add timeline to go back in time
-  // Todo: Add syntax highlighting to config editor 
+  // Todo: Add syntax highlighting to config editor
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
@@ -140,11 +141,10 @@ namespace run_charlie
     private long _iteration;
     private long _elapsedTime;
     private ISimulation _sim;
-    private Thread _logicThread;
+    private Thread _simulationThread;
     private AppDomain _appDomain;
     private byte[] _renderData;
 
-    private Box _root;
     private DrawingArea _canvas;
     private Label _iterationLbl;
     private Box _title;
@@ -217,7 +217,7 @@ namespace run_charlie
         Logger.Warn("Simulation file does not exist.");
         return;
       }
-      if (_logicThread != null)
+      if (_simulationThread != null)
       {
         Logger.Warn("Please terminate simulation first.");
         return;
@@ -306,14 +306,14 @@ namespace run_charlie
     private void Start()
     {
       _started = true;
-      _logicThread = new Thread(Update);
-      _logicThread.Start();
+      _simulationThread = new Thread(Update);
+      _simulationThread.Start();
     }
 
     private void Start(int steps)
     {
-      _logicThread = new Thread(() => Update(steps));
-      _logicThread.Start();
+      _simulationThread = new Thread(() => Update(steps));
+      _simulationThread.Start();
     }
     
     private void Stop()
@@ -343,7 +343,7 @@ namespace run_charlie
       catch (Exception e) { Logger.Warn(e.ToString()); }
       
       Application.Invoke((sender, args) => AfterUpdate());
-      _logicThread = null;
+      _simulationThread = null;
     }
     
     private void Update()
@@ -369,7 +369,7 @@ namespace run_charlie
         _elapsedTime += deltaTime;
         Application.Invoke((sender, args) => AfterUpdate());
       }
-      _logicThread = null;
+      _simulationThread = null;
     }
 
     private void AfterUpdate()
@@ -467,7 +467,7 @@ namespace run_charlie
         var t = new Timer(20);
         t.Elapsed += (o, eventArgs) =>
         {
-          if (_logicThread != null)
+          if (_simulationThread != null)
           {
             Logger.Say("Waiting for update thread to finish.");
             return;
@@ -487,7 +487,7 @@ namespace run_charlie
       var stepsBtn = new Button("R") {TooltipText = "Run x iterations"};
       stepsBtn.Clicked += (sender, args) =>
       {
-        if (_logicThread != null) return;
+        if (_simulationThread != null) return;
         if (int.TryParse(stepsEntry.Text, out var x)) this.Start(x);
         else Logger.Warn("Please enter a number >= 0.");
       };
@@ -553,10 +553,10 @@ namespace run_charlie
       var textView = new TextView(_configBuffer)
       {
         WidthRequest = 400,
-        Name = "configEntry",
         Indent = 3,
-        WrapMode = WrapMode.Char
+        WrapMode = WrapMode.WordChar
       };
+      textView.CompositedChanged += (o, a) => Console.WriteLine("Changed " + a);
       var result = new VBox(false, 7);
       result.PackStart(title, false, false, 0);
       result.PackStart(textView, true, true, 0);
