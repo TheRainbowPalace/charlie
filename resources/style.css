@@ -3,10 +3,16 @@ window {
     font-family: Andale Mono, monospace;
 }
 
+#prefPageTitle {
+    font-size: x-large;
+}
+#prefPage {
+    margin: 15px 20px;
+}
+
 #root {
     margin-top: 15px;
 }
-
 #root > * {
     margin: 0 20px;
 }
@@ -38,7 +44,7 @@ entry {
     color: #939797;
     caret-color: #939797;
     background: #010101;
-    padding: 2px 15px;
+    padding: 5px 15px;
     border: none;
     box-shadow: none;
 }

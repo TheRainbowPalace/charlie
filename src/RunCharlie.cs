@@ -9,7 +9,6 @@ using Cairo;
 using Gdk;
 using Gtk;
 using Application = Gtk.Application;
-using Key = Gtk.Key;
 using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
@@ -87,6 +86,24 @@ namespace run_charlie
     }
   }
 
+  internal static class Settings
+  {
+    public const string File = "~/.runcharlie";
+    public static int LogInterval = 20;
+    
+    private static void Parse(string settingsFile)
+    {
+      var stream = new FileStream(settingsFile, FileMode.Open);
+      if (!stream.CanRead) return;
+      stream.Close();
+    }
+    
+    public static void Init()
+    {
+      if (System.IO.File.Exists(File)) Parse(File);
+    }
+  }
+  
   internal static class Logger
   {
     public static void Say(string text)
@@ -114,12 +131,15 @@ namespace run_charlie
   // Done: Add about section
   // Done: Fix text overflow on long config input lines
   // Done: Select window after creation
+  // Done: Set Stride dynamically when rendering simulation
   // Todo: Remove delta time from Simulation.Update
   // Todo: Stop simulation thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
   // Todo: Fix low quality rendering duo to ImageSurface size
   // Todo: Create root node asynchronously
   // Todo: Fix text overflow on too many iterations / time
+  // Todo: Clear events when switching between pages (fixes assertion error
+  //   GDK_IS_FRAME_CLOCK)
   // Todo: Add app settings component (dark or light mode etc.)  
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add button to abort simulation
@@ -127,17 +147,20 @@ namespace run_charlie
   // Todo: Add magnetic scroll
   // Todo: Add simulation speed option
   // Todo: Add option to set output (logging & picture) path
-  // Todo: Add option to enable and disable logging
+  // Todo: Add option to enable and disable logging to file
+  // Todo: Add option to enable and disable logging on simulation screen
   // Todo: Add selector for logging output format
   // Todo: Add button to save pictures
   // Todo: Add timeline to go back in time
   // Todo: Add syntax highlighting to config editor
+  // Todo: Add ability to scale
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
     public const string Version = "1.0.0";
     public const string Author = "Jakob Rieke";
     public const string Copyright = "Copyright © 2019 Jakob Rieke";
+
     private bool _started;
     private long _iteration;
     private long _elapsedTime;
@@ -153,13 +176,14 @@ namespace run_charlie
 
     public RunCharlie()
     {
+      Settings.Init();
       _sim = new DefaultSimulation();
       
       var provider = new CssProvider();
       provider.LoadFromPath(
         AppDomain.CurrentDomain.BaseDirectory + "/style.css");
       StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
-
+      
       var window = new Window(WindowType.Toplevel)
       {
         WidthRequest = 440,
@@ -177,24 +201,21 @@ namespace run_charlie
       window.SetIconFromFile(
         AppDomain.CurrentDomain.BaseDirectory + "/logo.png");
 
-      var prefPage = new VBox {Name = "prefPage"};
-      prefPage.Add(new Label("Preferences"));
+      var prefPage = CreatePrefPage();
       prefPage.ShowAll();
-      
-      var resultsPage = new VBox {Name = "resultsPage"};
-      resultsPage.Add(new Label("Results"));
+
+      var resultsPage = CreateResultPage();
       resultsPage.ShowAll();
       
-      var simPageContent = CreateRoot();
+      var simPageContent = CreateSimPage();
       var simPage = new ScrolledWindow
       {
         OverlayScrolling = false,
-        KineticScrolling = true,
         VscrollbarPolicy = PolicyType.External,
         HscrollbarPolicy = PolicyType.Never,
         MinContentHeight = 600,
         MaxContentWidth = 400,
-        Child = simPageContent
+        Child = simPageContent,
       };
       void SetPage(Widget page)
       {
@@ -379,6 +400,8 @@ namespace run_charlie
         try
         {
           _sim.Update(deltaTime);
+//          if (_iteration % Settings.LogInterval == 0) Logger.Say(_sim.Log());
+          
           _renderData = _sim.Render(
             _canvas.AllocatedWidth, 
             _canvas.AllocatedHeight);
@@ -403,7 +426,46 @@ namespace run_charlie
         "i = " + _iteration + ", e = " + _elapsedTime / 1000 + "s";
     }
 
-    private Box CreateRoot()
+    private Box CreatePrefPage()
+    {
+      var outputFormat = new HBox(false, 10);
+      outputFormat.PackStart(new Label("Output format") {Halign = Align.Start}, 
+        true, true, 0);
+      outputFormat.PackStart(new ToggleButton("JSON"), false, false, 0);
+      outputFormat.PackStart(new ToggleButton("YAML"), false, false, 0);
+      outputFormat.PackStart(new ToggleButton("XML"), false, false, 0);
+
+      var toggles = new HBox(false, 10);
+      toggles.PackStart(new ToggleButton("Night Mode"), false, false, 0);
+      toggles.PackStart(new ToggleButton("Log"), false, false, 0);
+      
+      // Add log interval
+      
+      var result = new VBox (false, 10) {Name = "prefPage"};
+      result.PackStart(new Label("Preferences")
+      {
+        Name = "prefPageTitle", 
+        Halign = Align.Start
+      }, false, false, 0);
+      result.PackStart(toggles, false, false, 0);
+      result.PackStart(outputFormat, false, false, 0);
+      result.PackStart(new Entry("~/.runcharlie")
+      {
+        PlaceholderText = "/path/to/save/your/results",
+        HasFrame = false
+      }, false, false, 0);
+      
+      return result;
+    }
+
+    private Box CreateResultPage()
+    {
+      var result = new VBox {Name = "resultsPage"};
+      result.Add(new Label("Results"));
+      return result;
+    }
+    
+    private Box CreateSimPage()
     {
       _title = new VBox(false, 5)
       {
@@ -547,14 +609,14 @@ namespace run_charlie
         args.Cr.Stroke();
 
         if (_renderData == null) return;
-        
-        // Todo set Stride dynamically
-        var s = new ImageSurface(_renderData, Format.ARGB32, 
-          _canvas.AllocatedWidth, 
-          _canvas.AllocatedHeight, 1600);
-        args.Cr.SetSourceSurface(s, 0, 0);
+
+        var surface = new ImageSurface(_renderData, Format.ARGB32,
+          _canvas.AllocatedWidth,
+          _canvas.AllocatedHeight,
+          4 * _canvas.AllocatedWidth);
+        args.Cr.SetSourceSurface(surface, 0, 0);
         args.Cr.Paint();
-        s.Dispose();
+        surface.Dispose();
       };
 
       var result = new VBox(false, 7);
@@ -580,7 +642,6 @@ namespace run_charlie
         Indent = 3,
         WrapMode = WrapMode.WordChar
       };
-      textView.CompositedChanged += (o, a) => Console.WriteLine("Changed " + a);
       var result = new VBox(false, 7);
       result.PackStart(title, false, false, 0);
       result.PackStart(textView, true, true, 0);
