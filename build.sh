@@ -6,7 +6,6 @@
 
 cp resources/logo.png bin/Debug/
 cp resources/style.css bin/Debug/
-rm -fr bin/RunCharlie
 msbuild runcharlie-examples.csproj -nologo -verbosity:quiet
 msbuild sensor-positioning.csproj -nologo -verbosity:quiet
 
