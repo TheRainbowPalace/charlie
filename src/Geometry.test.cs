@@ -357,6 +357,13 @@ public static class VectorTest
       new[] {0.5, -0.25, 1});
   }
 
+  public static bool TestDistance()
+  {
+    var v1 = new[] {0.0, 0, 0, 0};
+    var v2 = new[] {1.0, 1, 1, 1};
+    return Math.Abs(Vector.Distance(v1, v2) - 2.0) < Defs.Precision;
+  }
+
 
   public static void TestAll()
   {
@@ -365,5 +372,6 @@ public static class VectorTest
     Console.WriteLine("Subtract: " + TestSubtract());
     Console.WriteLine("Multiply: " + TestMultiply());
     Console.WriteLine("Divide: " + TestDivide());
+    Console.WriteLine("Distance: " + TestDistance());
   }
 }

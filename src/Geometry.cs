@@ -70,7 +70,6 @@ namespace Geometry
       {
         result[i] = vector1[i] + vector2[i];
       }
-
       return result;
     }
 
@@ -96,6 +95,23 @@ namespace Geometry
       }
 
       return result;
+    }
+
+    /// <summary>
+    /// Calculate the Euclidean distance between two vectors.
+    /// </summary>
+    /// <param name="v1">Vector 1</param>
+    /// <param name="v2">Vector 2</param>
+    /// <returns></returns>
+    public static double Distance(double[] v1, double[] v2)
+    {
+      if (v1.Length != v2.Length)
+      {
+        throw new ArgumentException(
+          "Length of vector 1 is not equal to length of vector 2");
+      }
+      
+      return Math.Sqrt(v1.Select((t, i) => Math.Pow(t - v2[i], 2)).Sum());
     }
   }
   
@@ -196,6 +212,14 @@ namespace Geometry
   
   public struct Segment : IGeometryObject 
   {
+    public override int GetHashCode()
+    {
+      unchecked
+      {
+        return (Start.GetHashCode() * 397) ^ End.GetHashCode();
+      }
+    }
+
     public Vector2 Start;
     public Vector2 End;
 
@@ -245,7 +269,7 @@ namespace Geometry
     {
       return Start + "; " + End;
     }
-
+    
     /**
      * Calculate the intersection point between two line segments.
      * 
