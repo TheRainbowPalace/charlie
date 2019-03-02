@@ -71,7 +71,7 @@ namespace run_charlie
       return _surface.Data;
     }
 
-    public string Log()
+    public virtual string Log()
     {
       return null;
     }

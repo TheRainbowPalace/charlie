@@ -71,6 +71,11 @@ namespace run_charlie
       ctx.ClosePath();
       ctx.Fill();
     }
+
+    public override string Log()
+    {
+      return "Radius: " + _radius;
+    }
   }
 
   public class SineExample : AbstractSimulation
@@ -80,7 +85,6 @@ namespace run_charlie
     private double _wavelength;
     private double _y;
     private List<double> _trail;
-    private double[] _trailBuffer;
     private int _trailLength;
     private int _shift;
     
@@ -103,32 +107,30 @@ namespace run_charlie
 
     public override void Init(Dictionary<string, string> config)
     {
+      _wavelength = GetDouble(config, "Wavelength", 200);
+      _amplitude = GetDouble(config, "Amplitude", 100);
+      _shift = GetInt(config, "Shift", 0);
       _y = 200;
       _time = 0;
       _trailLength = 40;
       _shift = 0;
       _trail = new List<double>(_trailLength) {_y};
-      _trailBuffer = _trail.ToArray();
-      _wavelength = GetDouble(config, "Wavelength", 200);
-      _amplitude = GetDouble(config, "Amplitude", 100);
-      _shift = GetInt(config, "Shift", 0);
     }
 
     public override void Update(long deltaTime)
     {
       _time += deltaTime / _wavelength;
       _y = 200 + Math.Sin(_time) * _amplitude;
-      if (_trail.Count == _trailLength) _trail.RemoveAt(_trailLength - 1);
       _trail.Insert(0, _y);
-      _trailBuffer = _trail.ToArray();
+      if (_trail.Count > _trailLength) _trail.RemoveAt(_trailLength - 1);
     }
 
     public override void Render(Context ctx)
     {
-      for (var i = 0; i < _trailBuffer.Length; i++)
+      for (var i = 0; i < _trail.Count; i++)
       {
         ctx.SetSourceRGB(0.769, 0.282, 0.295);
-        ctx.Arc(200 + _shift - 10 * i, _trailBuffer[i], 
+        ctx.Arc(200 + _shift - 10 * i, _trail[i], 
           Math.Log(20.0, i + 2), 0, 2 * Math.PI);
         ctx.ClosePath();
         ctx.Fill();
@@ -136,7 +138,7 @@ namespace run_charlie
     }
   }
   
-  public class SoccerSimulation : AbstractSimulation
+  public class SoccerExample : AbstractSimulation
   {
     // A player is marked as a vector (x, y, rotation, velocity)
     private double[][] _teamA;
@@ -241,9 +243,8 @@ namespace run_charlie
 
     public override void Render(Context ctx)
     {
-      for (var i = 0; i < _swarm.Particles.Count; i++)
+      foreach (var p in _swarm.Particles)
       {
-        var p = _swarm.Particles[i];
         ctx.SetSourceColor(new Color(0.769, 0.282, 0.295));
         ctx.LineWidth = 1;
         ctx.Arc(
@@ -270,13 +271,14 @@ namespace run_charlie
       
       ctx.Rectangle(_xOffset - 100, _xOffset - 100, 200, 200);
       ctx.LineWidth = 1;
+      ctx.SetDash(new []{3.0}, 4);
       ctx.Stroke();
     }
-  }
+  }  
   
-//  public class Drawing
+//  public static class Draw
 //  {
-//    private void DrawPolygon(Context cr, Polygon p)
+//    private static void DrawPolygon(Context cr, Polygon p)
 //    {
 //      if (p.Count == 0) return;
 //
@@ -301,7 +303,7 @@ namespace run_charlie
 //      cr.Fill();
 //    }
 //
-//    private void DrawSegment(Context cr, Segment s)
+//    private static void DrawSegment(Context cr, Segment s)
 //    {
 //      cr.SetSourceRGBA(1, 1, 1, 0.5);
 //      cr.NewPath();
