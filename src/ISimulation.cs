@@ -7,6 +7,7 @@ namespace run_charlie
   {
     string GetTitle();
     string GetDescr();
+    string GetMeta();
     string GetConfig();
     void Init(Dictionary<string, string> config);
     void End();
@@ -23,6 +24,11 @@ namespace run_charlie
     public abstract string GetDescr();
     public abstract string GetConfig();
 
+    public virtual string GetMeta()
+    {
+      return null;
+    }
+    
     public static double GetDouble(Dictionary<string, string> config,
       string key, double backup)
     {

@@ -22,6 +22,7 @@ namespace run_charlie
     private MethodInfo _getTitle;
     private MethodInfo _getDescr;
     private MethodInfo _getConfig;
+    private MethodInfo _getMeta;
     private MethodInfo _init;
     private MethodInfo _update;
     private MethodInfo _render;
@@ -38,6 +39,7 @@ namespace run_charlie
       _getTitle = type.GetMethod("GetTitle");
       _getDescr = type.GetMethod("GetDescr");
       _getConfig = type.GetMethod("GetConfig");
+      _getMeta = type.GetMethod("GetMeta");
       _init = type.GetMethod("Init");
       _end = type.GetMethod("End");
       _update = type.GetMethod("Update");
@@ -58,6 +60,11 @@ namespace run_charlie
     public string GetConfig()
     {
       return (string) _getConfig.Invoke(_sim, new object[0]);
+    }
+
+    public string GetMeta()
+    {
+      return (string) _getMeta.Invoke(_sim, new object[0]);
     }
 
     public void Init(Dictionary<string, string> config)
@@ -132,6 +139,7 @@ namespace run_charlie
   // Done: Fix text overflow on long config input lines
   // Done: Select window after creation
   // Done: Set Stride dynamically when rendering simulation
+  // Done: Add app settings component (dark or light mode etc.)  
   // Todo: Remove delta time from Simulation.Update
   // Todo: Stop simulation thread on Ctrl+C
   // Todo: Hide titlebar on MacOs
@@ -140,9 +148,8 @@ namespace run_charlie
   // Todo: Fix text overflow on too many iterations / time
   // Todo: Clear events when switching between pages (fixes assertion error
   //   GDK_IS_FRAME_CLOCK)
-  // Todo: Add app settings component (dark or light mode etc.)  
+  // Todo: Abort simulation if a certain stopping time is passed
   // Todo: Add task-runner component (Allows to run scheduled simulations)
-  // Todo: Add button to abort simulation
   // Todo: Add a commandline version of RunCharlie (> charlie file -params)
   // Todo: Add magnetic scroll
   // Todo: Add simulation speed option
@@ -150,10 +157,15 @@ namespace run_charlie
   // Todo: Add option to enable and disable logging to file
   // Todo: Add option to enable and disable logging on simulation screen
   // Todo: Add selector for logging output format
-  // Todo: Add button to save pictures
+  // Todo: Add button & function to save pictures
+  // Todo: Add option to compress saved images
+  // Todo: Add option for image output format
+  // Todo: Add button & function to save simulation video
+  // Todo: Add option to compress saved videos
+  // Todo: Add option for video output format
   // Todo: Add timeline to go back in time
   // Todo: Add syntax highlighting to config editor
-  // Todo: Add ability to scale
+  // Todo: Add layout ability to scale
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
