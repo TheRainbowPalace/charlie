@@ -265,6 +265,11 @@ namespace Geometry
       return !(s1 == s2);
     }
 
+    public override bool Equals(object obj)
+    {
+      return base.Equals(obj);
+    }
+
     public override string ToString()
     {
       return Start + "; " + End;
