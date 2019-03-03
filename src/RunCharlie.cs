@@ -95,8 +95,19 @@ namespace run_charlie
 
   internal static class Settings
   {
-    public const string File = "~/.runcharlie";
+    // Simulation Settings
+    public static int SimSpeed = 10;
+    
+    // Logging Settings
     public static int LogInterval = 20;
+    public static bool logToUi = true;
+    public static bool logToFile = false;
+    public static string logFilePath = null;
+    
+    // General Settings
+    public const string outputPath = "~/.runcharlie";
+    public static string uiTheme = "dark";
+    public static int textSize = 12;
     
     private static void Parse(string settingsFile)
     {
@@ -107,7 +118,8 @@ namespace run_charlie
     
     public static void Init()
     {
-      if (System.IO.File.Exists(File)) Parse(File);
+      const string configFile = outputPath + "/config.json";
+      if (File.Exists(configFile)) Parse(configFile);
     }
   }
   
