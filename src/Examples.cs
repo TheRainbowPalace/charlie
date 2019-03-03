@@ -274,7 +274,139 @@ namespace run_charlie
       ctx.SetDash(new []{3.0}, 4);
       ctx.Stroke();
     }
-  }  
+  }
+
+  internal class Branch
+  {
+    private int _maxLength;
+    private double[] _cells;
+    private double _cellRadius;
+    private double _angleStart;
+    private double _angleEnd;
+    private int _length;
+    private double _branchProbability;
+    private List<Branch> _branches;
+    private PcgRandom _rand;
+    
+    /// <summary>
+    /// Initialize the branch.
+    /// </summary>
+    /// <param name="x"></param>
+    /// <param name="y"></param>
+    /// <param name="angleStart"></param>
+    /// <param name="angleEnd"></param>
+    /// <param name="cellRadius"></param>
+    /// <param name="maxLength"></param>
+    /// <param name="branchProbability"></param>
+    public Branch(double x, double y, double angleStart, double angleEnd, 
+      double cellRadius, int maxLength, double branchProbability)
+    {
+      _angleStart = angleStart;
+      _angleEnd = angleEnd;
+      _cellRadius = cellRadius;
+      _maxLength = maxLength;
+      _cells = new double[_maxLength * 2];
+      _cells[0] = x;
+      _cells[1] = y;
+      _length = 0;
+      _branchProbability = branchProbability;
+      _rand = new PcgRandom();
+      
+      var expectedBranches = (int) Math.Truncate(maxLength * branchProbability);
+      _branches = new List<Branch>(expectedBranches);
+    }
+
+    public void Update()
+    {
+      if (++_length > _maxLength - 1) return;
+      
+      var angle = _rand.GetDouble(_angleStart, _angleEnd);
+      angle = angle * 2 * Math.PI - 0.25 * Math.PI;
+      var x = Math.Cos(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2];
+      var y = Math.Sin(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2 + 1];
+      _cells[_length * 2] = x;
+      _cells[_length * 2 + 1] = y;
+
+      if (_rand.GetDouble() < _branchProbability)
+      {
+        _branches.Add(new Branch(x, y, _angleStart, _angleEnd, _cellRadius, 
+          _maxLength, 0));
+      }
+      
+      foreach (var branch in _branches) branch.Update();
+    }
+    
+    public void Render(Context ctx, int offsetX, int offsetY)
+    {
+      for (var i = 0; i < _cells.Length; i += 2)
+      {
+        ctx.SetSourceRGB(0.556,  0.768, 0.466);
+        ctx.Arc(
+          offsetX + _cells[i],
+          offsetY + _cells[i + 1],
+          _cellRadius,
+          0, 2 * Math.PI);
+        ctx.ClosePath();
+        ctx.Fill();
+      }
+
+      foreach (var branch in _branches) branch.Render(ctx, offsetX, offsetY);
+    }
+  }
+  
+  public class GrowthExample : AbstractSimulation
+  {
+    private Branch[] _roots;
+    private int _length;
+    
+    public override string GetTitle()
+    {
+      return "Growth";
+    }
+
+    public override string GetDescr()
+    {
+      return "Grow a weird artificial plant";
+    }
+
+    public override string GetConfig()
+    {
+      return "# The maximal angle between two cells\nVariety = 0.125\n" +
+             "# The size of a single cell\nCellRadius = 5\n" +
+             "# The maximal size of the plant\nMaxLength = 20\n" +
+             "# The probability for a branch to sprout\n" +
+             "BranchProbability = 0.1\n" +
+             "RootCount = 10";
+    }
+
+    public override void Init(Dictionary<string, string> config)
+    {
+      var cellRadius = GetDouble(config, "CellRadius", 0.125); 
+      var maxLength = GetInt(config, "MaxLength", 20); 
+      var branchProbability = GetDouble(config, "BranchProbability", 0.125);
+      var variety = GetDouble(config, "Variety", 0.125);
+      var angleStart = - variety / 2;
+      var angleEnd = variety / 2;
+
+      var rootCount = GetInt(config, "RootCount", 10);
+      _roots = new Branch[rootCount];
+      for (var i = 0; i < rootCount; i++)
+      {
+        _roots[i] = new Branch(0, 0, angleStart, angleEnd, cellRadius,
+          maxLength, branchProbability);
+      }
+    }
+
+    public override void Update(long deltaTime)
+    {
+      foreach (var branch in _roots) branch.Update();
+    }
+
+    public override void Render(Context ctx)
+    {
+      foreach (var branch in _roots) branch.Render(ctx, 200, 350);
+    }
+  }
   
 //  public static class Draw
 //  {

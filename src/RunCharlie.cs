@@ -148,6 +148,9 @@ namespace run_charlie
   // Todo: Fix text overflow on too many iterations / time
   // Todo: Clear events when switching between pages (fixes assertion error
   //   GDK_IS_FRAME_CLOCK)
+  // Todo: Fix "Assertion failed: (_cairo_path_fixed_last_op (path) ==
+  //   CAIRO_PATH_OP_LINE_TO), function _cairo_path_fixed_drop_line_to,
+  //   file cairo-path-fixed.c, line 392." when running Growth simulation
   // Todo: Abort simulation if a certain stopping time is passed
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add a commandline version of RunCharlie (> charlie file -params)
