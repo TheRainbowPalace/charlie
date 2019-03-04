@@ -121,6 +121,11 @@ namespace run_charlie
       const string configFile = outputPath + "/config.json";
       if (File.Exists(configFile)) Parse(configFile);
     }
+
+    public static void Save()
+    {
+      throw new NotImplementedException();
+    }
   }
   
   internal static class Logger
@@ -242,7 +247,7 @@ namespace run_charlie
         HscrollbarPolicy = PolicyType.Never,
         MinContentHeight = 600,
         MaxContentWidth = 400,
-        Child = simPageContent,
+        Child = simPageContent
       };
       void SetPage(Widget page)
       {
@@ -453,7 +458,7 @@ namespace run_charlie
         "i = " + _iteration + ", e = " + _elapsedTime / 1000 + "s";
     }
 
-    private Box CreatePrefPage()
+    private static Box CreatePrefPage()
     {
       var outputFormat = new HBox(false, 10);
       outputFormat.PackStart(new Label("Output format") {Halign = Align.Start}, 
@@ -485,7 +490,7 @@ namespace run_charlie
       return result;
     }
 
-    private Box CreateResultPage()
+    private static Box CreateResultPage()
     {
       var result = new VBox {Name = "resultsPage"};
       result.Add(new Label("Results"));
@@ -577,18 +582,19 @@ namespace run_charlie
       initBtn.Clicked += (sender, args) =>
       {
         if (_started) Stop(null, null);
-        var t = new Timer(20);
-        t.Elapsed += (o, eventArgs) =>
+        var timer = new Timer(20);
+        timer.Elapsed += (o, eventArgs) =>
         {
           if (_simulationThread != null)
           {
             Logger.Say("Waiting for update thread to finish.");
             return;
           }
+
           Init();
-          t.Enabled = false;
+          timer.Enabled = false;
         };
-        t.Enabled = true;
+        timer.Enabled = true;
       };
 
       var stepsEntry = new Entry("10")
@@ -675,7 +681,7 @@ namespace run_charlie
       return result;
     }
 
-    private Box CreateAbout()
+    private static Box CreateAbout()
     {
       var aboutTitle = new Label("About")
       {
