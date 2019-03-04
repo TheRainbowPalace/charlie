@@ -1,3 +1,12 @@
+/*
+    Dark theme: 
+    --prim-color: #414141;
+    --secondary-color: #CDCDCD;
+    --dark-color: #010101;
+    --light-color: #1A1B1B;
+    --active-color: #C4484B;
+*/
+
 window {
     background-color: #333333;
     font-family: Andale Mono, monospace;
@@ -28,7 +37,6 @@ label {
 
 button {
     font-size: 22px;
-    color: #939797;
     background: #010101;
     padding: 2px 20px;
     border: none;
@@ -79,7 +87,7 @@ textview {
 }
 textview text {
     background: transparent;
-    color: #C4C4C4;
+    color: #939797;
 }
 textview text selection {
     background: #C4484B;
