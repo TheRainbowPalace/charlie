@@ -148,6 +148,16 @@ namespace run_charlie
     }
   }
 
+	public class App
+  {
+		public static void Main(string[] args)
+    {
+			Application.Init();
+      var app = new RunCharlie();
+      Application.Run();
+    }
+  }
+
   // Done: Fix Rendering is not done on the logic thread
   // Done: Block Load button until simulation is loaded
   // Done: Fix first initialization is done to early
@@ -168,6 +178,8 @@ namespace run_charlie
   // Todo: Fix "Assertion failed: (_cairo_path_fixed_last_op (path) ==
   //   CAIRO_PATH_OP_LINE_TO), function _cairo_path_fixed_drop_line_to,
   //   file cairo-path-fixed.c, line 392." when running Growth simulation
+  // Todo: Fix NullPointerException when loading "..RunCharlie/Examples."
+  //   instead of "..RunCharlie/Examples.dll"
   // Todo: Abort simulation if a certain stopping time is passed
   // Todo: Add task-runner component (Allows to run scheduled simulations)
   // Todo: Add a commandline version of RunCharlie (> charlie file -params)

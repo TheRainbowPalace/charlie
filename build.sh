@@ -4,8 +4,9 @@
 #     -r:packages/CairoSharp.3.22.24.36/lib/netstandard2.0/CairoSharp.dll \
 #     src/Examples.cs src/ISimulation.cs
 
-cp resources/logo.png bin/Debug/
-cp resources/style.css bin/Debug/
 msbuild runcharlie-examples.csproj -nologo -verbosity:quiet
 msbuild sensor-positioning.csproj -nologo -verbosity:quiet
+msbuild runcharlie.csproj -nologo -verbosity:quiet
+cp resources/logo.png bin/RunCharlie
+cp resources/style.css bin/RunCharlie
 
