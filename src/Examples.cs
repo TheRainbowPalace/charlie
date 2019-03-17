@@ -357,7 +357,6 @@ namespace run_charlie
   public class GrowthExample : AbstractSimulation
   {
     private Branch[] _roots;
-    private int _length;
     
     public override string GetTitle()
     {
@@ -407,42 +406,4 @@ namespace run_charlie
       foreach (var branch in _roots) branch.Render(ctx, 200, 350);
     }
   }
-  
-//  public static class Draw
-//  {
-//    private static void DrawPolygon(Context cr, Polygon p)
-//    {
-//      if (p.Count == 0) return;
-//
-//      cr.SetSourceRGBA(0, 0, 0, 0.7);
-//      cr.NewPath();
-//      cr.MoveTo(p[0].X,
-//        p[0].Y);
-//
-//      for (var i = 1; i < p.Count; i++)
-//      {
-//        cr.LineTo(p[i].X,
-//          p[i].Y);
-//      }
-//
-//      if (p[0] != p[p.Count - 1])
-//      {
-//        cr.MoveTo(p[0].X,
-//          p[0].Y);
-//      }
-//
-//      cr.ClosePath();
-//      cr.Fill();
-//    }
-//
-//    private static void DrawSegment(Context cr, Segment s)
-//    {
-//      cr.SetSourceRGBA(1, 1, 1, 0.5);
-//      cr.NewPath();
-//      cr.MoveTo(s.Start.X, s.Start.Y);
-//      cr.LineTo(s.End.X, s.End.Y);
-//      cr.ClosePath();
-//      cr.Stroke();
-//    }
-//  }
 }
