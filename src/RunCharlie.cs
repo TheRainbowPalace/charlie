@@ -198,6 +198,9 @@ namespace run_charlie
   // Todo: Add timeline to go back in time
   // Todo: Add syntax highlighting to config editor
   // Todo: Add layout ability to scale
+  // Todo: Add label for average iteration duration
+  // Todo: Add option to reset configuration to default
+  // Todo: Add option to save configuration
   /// <summary> RunCharlie is a general simulation framework. </summary>
   public class RunCharlie
   {
