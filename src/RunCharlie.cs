@@ -29,6 +29,12 @@ namespace run_charlie
     private MethodInfo _end;
     private MethodInfo _log;
     
+    /// <summary>
+    /// Load the simulation from an assembly.
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="className"></param>
+    /// <exception cref="ArgumentException"></exception>
     public void LoadAssembly(string path, string className)
     {
       var assembly = Assembly.Load(AssemblyName.GetAssemblyName(path));
@@ -93,21 +99,36 @@ namespace run_charlie
     }
   }
 
-  internal static class Settings
+  internal class Settings
   {
-    // Simulation Settings
-    public static int SimSpeed = 10;
-    
-    // Logging Settings
-    public static int LogInterval = 20;
-    public static bool logToUi = true;
-    public static bool logToFile = false;
-    public static string logFilePath = null;
-    
     // General Settings
     public const string outputPath = "~/.runcharlie";
-    public static string uiTheme = "dark";
-    public static int textSize = 12;
+    public string uiTheme = "dark";
+    public int textSize = 12;
+    
+    // Simulation Settings
+    public int SimSpeed = 10;
+    
+    // Logging Settings
+    public int LogInterval = 20;
+    public bool logToUi = true;
+    public bool logToFile = false;
+    public string logFilePath = null;
+
+    private Dictionary<string, object> _settings;
+//    private Dictionary<string, Action<object, object>> _listener;
+    
+    public Settings()
+    {
+      _settings = new Dictionary<string, object>
+      {
+        {"UiTheme", "dark"}, {"TextSize", 12}, {"SimSpeed", 10}
+      };
+      
+      const string configFile = outputPath + "/config.json";
+      if (File.Exists(configFile)) Parse(configFile);
+
+    }
     
     private static void Parse(string settingsFile)
     {
@@ -115,14 +136,18 @@ namespace run_charlie
       if (!stream.CanRead) return;
       stream.Close();
     }
-    
-    public static void Init()
+
+    public object Get(string key)
     {
-      const string configFile = outputPath + "/config.json";
-      if (File.Exists(configFile)) Parse(configFile);
+      return _settings.TryGetValue(key, out var value) ? value : null;
     }
 
-    public static void Save()
+    public void Set(string key, object value)
+    {
+      _settings.Add(key, value);
+    }
+    
+    public void Save()
     {
       throw new NotImplementedException();
     }
@@ -212,6 +237,7 @@ namespace run_charlie
     private long _iteration;
     private long _elapsedTime;
     private ISimulation _sim;
+    private Settings _settings;
     private Thread _simulationThread;
     private AppDomain _appDomain;
     private byte[] _renderData;
@@ -223,8 +249,8 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      Settings.Init();
       _sim = new DefaultSimulation();
+      _settings = new Settings();
       
       var provider = new CssProvider();
       provider.LoadFromPath(
