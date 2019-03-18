@@ -387,6 +387,7 @@ namespace run_charlie
       try
       {
         _sim.Init(config);
+        Logger.Say(_sim.Log());
         _renderData = _sim.Render(
           _canvas.AllocatedWidth,
           _canvas.AllocatedHeight);
@@ -428,6 +429,7 @@ namespace run_charlie
 
       try
       {
+        Logger.Say(_sim.Log());
         _renderData = _sim.Render(
           _canvas.AllocatedWidth,
           _canvas.AllocatedHeight);
@@ -447,6 +449,7 @@ namespace run_charlie
         try
         {
           _sim.Update(deltaTime);
+          Logger.Say(_sim.Log());
 //          if (_iteration % Settings.LogInterval == 0) Logger.Say(_sim.Log());
           
           _renderData = _sim.Render(
