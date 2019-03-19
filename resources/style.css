@@ -12,11 +12,19 @@ window {
     font-family: Andale Mono, monospace;
 }
 
-#prefPageTitle {
-    font-size: x-large;
-}
 #prefPage {
     margin: 15px 20px;
+}
+
+#simSubtitle, #generalSubtitle {
+    font-size: large;
+    padding-bottom: 5px;
+    margin-top: 10px;
+    border-bottom: 1px solid #939797;
+}
+
+#prefPageTitle {
+    font-size: x-large;
 }
 
 #root {
@@ -70,7 +78,29 @@ entry selection {
     border: none;
 }
 #runSteps button {
-    padding: 1px 7px;
+    padding: 1px 6px;
+}
+
+#pictureBtn {
+    padding: 1px 6px;
+}
+
+#delayControl {
+    padding: 1px 5px 1px 10px;
+    background-color: transparent;
+    border: 1px solid #010101;
+}
+
+#delayControl label {
+    padding: 1px 6px;
+    color: #010101;
+}
+
+#delayControl entry {
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    color: #010101;
 }
 
 tooltip {

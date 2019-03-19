@@ -7,6 +7,5 @@
 msbuild runcharlie-examples.csproj -nologo -verbosity:quiet
 msbuild sensor-positioning.csproj -nologo -verbosity:quiet
 msbuild runcharlie.csproj -nologo -verbosity:quiet
-cp resources/logo.png bin/RunCharlie
-cp resources/style.css bin/RunCharlie
+cp -r resources bin/RunCharlie
 
