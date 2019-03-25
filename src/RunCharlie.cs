@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Timers;
@@ -12,7 +12,7 @@ using GLib;
 using Gtk;
 using MathNet.Numerics.Random;
 using Application = Gtk.Application;
-using Key = Gtk.Key;
+using DateTime = System.DateTime;
 using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
@@ -103,8 +103,123 @@ namespace run_charlie
     }
   }
 
-  public class Simulator
+  public class DataService
   {
+    /// <summary>
+    /// A unique ID which is used to generate the log file names.
+    /// </summary>
+    public string SessionId { get; private set; }
+    
+    /// <summary>
+    /// The directory where all log output is stored.
+    /// </summary>
+    public string OutputDir { get; private set; }
+    
+    /// <summary>
+    /// The log file format to store the log output on a hard-drive.
+    /// Currently only JSON is allowed.
+    /// </summary>
+    public string LogFileFormat;
+    
+    /// <summary>
+    /// The maximum number of log entries a log file may contain until a new
+    /// one is created.
+    /// </summary>
+    public int MaxLogFileLength;
+    
+    /// <summary>
+    /// Log only every n'th log entry would LogSteps e.g. be 1 every log entry
+    /// would be saved, would it be 5 only every 5th log entry would be saved
+    /// and so on. Defaults to 1.
+    /// </summary>
+    public int LogEveryN;
+
+    /// <summary>
+    /// The maximum length of the internal log buffer. Duo to performance
+    /// reasons log entries are first written to RAM and only to file if
+    /// the buffer is full or WriteLogBuffer() is called manually. Defaults to
+    /// 1000.
+    /// </summary>
+    public int MaxBufferLength;
+    
+    private string[] _logBuffer;
+    private int _bufferPosition;
+    private int _fileLength;
+    private int _fileCount;
+
+    
+    public DataService(string projectName)
+    {
+      LogFileFormat = "JSON";
+      MaxLogFileLength = 50000;
+      LogEveryN = 1;
+      MaxBufferLength = 1000;
+      SetOutputDir(projectName);
+      SetSessionId();
+      
+      _logBuffer = new string[MaxBufferLength];
+      _bufferPosition = 0;
+    }
+
+    private void SetSessionId()
+    {
+      var date = DateTime.Now.ToUniversalTime();
+      SessionId = "run-" + date.Year + 
+                  "-" + (date.Month < 10 ? "0" : "") + date.Month + 
+                  "-" + (date.Day < 10 ? "0" : "") + date.Day +
+                  "T" + (date.Hour < 10 ? "0" : "") + date.Hour + 
+                  "-" + (date.Minute < 10 ? "0" : "") + date.Minute + 
+                  "-" + (date.Second < 10 ? "0" : "") + date.Second + "Z";
+    }
+    
+    private void SetOutputDir(string projectName)
+    {
+      OutputDir = Path.Combine(
+        Environment.GetFolderPath(
+          Environment.SpecialFolder.UserProfile), 
+        ".runcharlie", 
+        projectName);
+      
+      if (!Directory.Exists(OutputDir)) Directory.CreateDirectory(OutputDir);
+    }
+    
+    /// <summary>
+    /// Write a log entry into the log buffer. The buffer is written to file
+    /// if it reaches the MaxBufferLength.
+    /// </summary>
+    /// <param name="entry"></param>
+    public void Log(string entry)
+    {
+      if (string.IsNullOrEmpty(entry)) return;
+      
+      _logBuffer[_bufferPosition] = entry;
+      _bufferPosition++;
+      if (_bufferPosition == MaxBufferLength) WriteLogBuffer();
+    }
+
+    public void WriteLogBuffer()
+    {
+      if (_fileLength + _logBuffer.Length > MaxLogFileLength)
+      {
+        _fileCount++;
+        _fileLength = 0;
+      }
+
+      var filePath = Path.Combine(
+        OutputDir,
+        SessionId + (_fileCount > 0 ? "-" + _fileCount : "") + ".log");
+      
+      File.AppendAllLines(filePath, _logBuffer);
+      
+      _logBuffer = new string[MaxBufferLength];
+      _bufferPosition = 0;
+      _fileLength += _logBuffer.Length;
+    }
+  }
+  
+  public class SimulationEngine
+  {
+    public string LoadedClass { get; private set; }
     public bool Started { get; private set; }
     public bool Running { get; private set; }
     public long Iteration { get; private set; }
@@ -113,9 +228,9 @@ namespace run_charlie
     public byte[] RenderData { get; private set; }
     public ISimulation Sim { get; private set; }
     
-    private AppDomain _appDomain;
-    private Thread _simulationThread;
-
+    public DataService DataService { get; private set; }
+    public bool IsLogging;
+    
     public event EventHandler OnUpdate;
     
     /// <summary>
@@ -124,6 +239,9 @@ namespace run_charlie
     /// </summary>
     public int SimDelay = 10;
 
+    
+    private AppDomain _appDomain;
+    private Thread _simulationThread;
     private int _renderWidth;
     private int _renderHeight;
 
@@ -131,6 +249,7 @@ namespace run_charlie
     public void LoadDefault()
     {
       Sim = new DefaultSimulation();
+      LoadedClass = "run_charlie.DefaultSimulation";
     }
     
     public void Load(string complexPath)
@@ -160,8 +279,7 @@ namespace run_charlie
         return;
       }
 
-      try { Sim.End(); }
-      catch (Exception e) { Logger.Warn(e.ToString()); }
+      End();
       
       try
       {
@@ -181,6 +299,7 @@ namespace run_charlie
 
         loader.LoadAssembly(path, className);
         Sim = loader;
+        LoadedClass = className;
       }
       catch (ArgumentException)
       {
@@ -190,7 +309,7 @@ namespace run_charlie
       catch (Exception e)
       {
         Logger.Warn(e.ToString());
-        Sim = new DefaultSimulation();
+        LoadDefault();
       }
     }
     
@@ -224,19 +343,19 @@ namespace run_charlie
       return result;
     }
 
-    private static void Log(string message)
+    private void Log(string message)
     {
-      if (!string.IsNullOrEmpty(message)) Logger.Say(message);
+      if (IsLogging) DataService.Log(message);
     }
-
+    
     /// <summary>
-    /// Save the current Render data as an png image.
+    /// Save the current Render data as a PNG image.
     /// </summary>
     public void SaveImage()
     {
       if (Running)
       {
-        Log("Please stop simulation first");
+        Logger.Say("Please stop simulation first");
         return;
       }
 
@@ -246,7 +365,7 @@ namespace run_charlie
       
       var surface = new ImageSurface(RenderData, Format.ARGB32,
         _renderWidth, _renderHeight, 4 * _renderWidth);
-      surface.WriteToPng(title + ".png");
+      surface.WriteToPng(Path.Combine(DataService.OutputDir, title + ".png"));
       surface.Dispose();
     }
     
@@ -264,8 +383,15 @@ namespace run_charlie
       Iteration = 0;
       ElapsedTime = 0;
       AverageIterationTime = 0;
+      
+      DataService?.WriteLogBuffer();
+      DataService = new DataService(LoadedClass);
+      
       try
       {
+        Log("<title>" + Sim.GetTitle() + "</title>");
+        Log("<meta>" + Sim.GetMeta() + "</meta>");
+        Log("<config>" + config + "</config>");
         Sim.Init(ParseConfig(config));
         Log(Sim.Log());
         RenderData = Sim.Render(_renderWidth, _renderHeight);
@@ -273,6 +399,7 @@ namespace run_charlie
       }
       catch (Exception e)
       {
+        Log("<error>" + e + "</error>");
         Logger.Warn(e.ToString());
       }
     }
@@ -301,7 +428,11 @@ namespace run_charlie
             Log(Sim.Log());
             RenderData = Sim.Render(_renderWidth, _renderHeight);
           }
-          catch (Exception e) { Logger.Warn(e.ToString()); }
+          catch (Exception e)
+          {
+            Log("<error>" + e + "</error>");
+            Logger.Warn(e.ToString());
+          }
 
           Thread.Sleep(SimDelay);
           timer.Stop();
@@ -349,7 +480,11 @@ namespace run_charlie
           Log(Sim.Log());
           RenderData = Sim.Render(_renderWidth, _renderHeight);
         }
-        catch (Exception e) { Logger.Warn(e.ToString()); }
+        catch (Exception e)
+        {
+          Log("<error>" + e + "</error>");
+          Logger.Warn(e.ToString());
+        }
       
         Started = false;
         Running = false;
@@ -362,6 +497,25 @@ namespace run_charlie
     {
       Started = false;
     }
+    
+    private void End()
+    {
+      try
+      {
+        Sim.End();
+      }
+      catch (Exception e)
+      {
+        Log("<error>" + e + "</error>");
+        Logger.Warn(e.ToString());
+      }
+      
+      Log("<iterations>" + Iteration + "</iterations>");
+      Log("<elapsed-time>" + ElapsedTime + "</elapsed-time>");
+      Log("<average-time>" + AverageIterationTime + 
+          "</average-time>");
+      DataService.WriteLogBuffer();
+    }
 
     public void Abort()
     {
@@ -372,18 +526,6 @@ namespace run_charlie
   
   public class Logger
   {
-    public readonly string OutputFolder;
-    public readonly string LogFile;
-    
-    public int LogInterval = 20;
-    public bool logToFile = false;
-
-    public Logger()
-    {
-      OutputFolder = "~/.runcharlie";
-      LogFile = OutputFolder + "/config.json";
-    }
-
     public static void Say(string text)
     {
       Console.WriteLine(text);
@@ -462,7 +604,7 @@ namespace run_charlie
     public const string Author = "Jakob Rieke";
     public const string Copyright = "Copyright © 2019 Jakob Rieke";
 
-    private readonly Simulator _simulator;
+    private readonly SimulationEngine _engine;
     
     private DrawingArea _canvas;
     private Label _iterationLbl;
@@ -471,9 +613,9 @@ namespace run_charlie
 
     public RunCharlie()
     {
-      _simulator = new Simulator();
-      _simulator.LoadDefault();
-      _simulator.OnUpdate += (sender, args) =>
+      _engine = new SimulationEngine();
+      _engine.LoadDefault();
+      _engine.OnUpdate += (sender, args) =>
       {
         Application.Invoke((s, a) => AfterUpdate());
       };
@@ -490,21 +632,14 @@ namespace run_charlie
         Role = "RunCharlie",
         Resizable = false
       };
-      window.Destroyed += (sender, args) =>
-      {
-        _simulator.Stop();
-        Application.Quit();
-      };
+      window.Destroyed += (sender, args) => Quit();
       window.Move(100, 100);
       window.SetIconFromFile(GetResource("logo.png"));
 
-      var prefPage = CreatePrefPage();
-      prefPage.ShowAll();
-
-      var resultsPage = CreateResultPage();
-      resultsPage.ShowAll();
-      
+      Box prefPage = null;
+      Box resultsPage = null;
       var simPage = CreateSimPage();
+      
       var root = new ScrolledWindow
       {
         OverlayScrolling = false,
@@ -527,17 +662,25 @@ namespace run_charlie
       {
         mod = a.Event.State & Accelerator.DefaultModMask;
         if (mod != ModifierType.ControlMask) return;
-        if (a.Event.Key == Gdk.Key.Key_1) SetPage(prefPage);
+        if (a.Event.Key == Gdk.Key.Key_1)
+        {
+          if (prefPage == null) prefPage = CreatePrefPage();
+          SetPage(prefPage);
+        }
         else if (a.Event.Key == Gdk.Key.Key_2) SetPage(simPage);
-        else if (a.Event.Key == Gdk.Key.Key_3) SetPage(resultsPage);
+        else if (a.Event.Key == Gdk.Key.Key_3)
+        {
+          if (resultsPage == null) resultsPage = CreateResultPage();
+          SetPage(resultsPage);
+        }
       };
       window.Child = root;
       window.ShowAll();
       
       void Init (object o, DrawnArgs a)
       {
-        _simulator.Init(
-          _simulator.Sim.GetConfig(), 
+        _engine.Init(
+          _engine.Sim.GetConfig(), 
           _canvas.AllocatedWidth, 
           _canvas.AllocatedHeight);
         _canvas.Drawn -= Init;
@@ -546,6 +689,12 @@ namespace run_charlie
       _canvas.Drawn += Init;
     }
 
+    private void Quit()
+    {
+      _engine.Stop();
+      Application.Quit();
+    }
+    
     private static string GetResource(string resource)
     {
       return AppDomain.CurrentDomain.BaseDirectory + "resources/" + resource;
@@ -555,14 +704,14 @@ namespace run_charlie
     {
       _canvas.QueueDraw();
       _iterationLbl.Text = 
-        "i = " + _simulator.Iteration + 
-        ", e = " + _simulator.ElapsedTime / 1000 + "s" +
-        ", a = " + Math.Round(_simulator.AverageIterationTime, 2) + "ms";
+        "i = " + _engine.Iteration + 
+        ", e = " + _engine.ElapsedTime / 1000 + "s" +
+        ", a = " + Math.Round(_engine.AverageIterationTime, 2) + "ms";
     }
 
     private Box CreatePrefPage()
     {
-      var result = new VBox (false, 10) {Name = "prefPage"};
+      var result = new VBox (false, 3) {Name = "prefPage"};
       result.PackStart(new Label("Preferences")
       {
         Name = "prefPageTitle",
@@ -602,9 +751,9 @@ namespace run_charlie
       
       result.PackStart(simSubtitle, false, false, 0);
       
-      var delayEntry = new Entry("" + _simulator.SimDelay)
+      var delayEntry = new Entry("" + _engine.SimDelay)
       {
-        PlaceholderText = "" + _simulator.SimDelay,
+        PlaceholderText = "" + _engine.SimDelay,
         HasFrame = false
       };
       delayEntry.Activated += (s, a) =>
@@ -612,17 +761,30 @@ namespace run_charlie
         Console.WriteLine("Enter pressed");
         if (int.TryParse(delayEntry.Text, out var value) && value >= 0)
         {
-          _simulator.SimDelay = value;
+          _engine.SimDelay = value;
         }
       };
       var delayControl = new HBox(false, 0)
       {
-        HeightRequest = 10,
         Name = "delayControl"
       };
-      delayControl.PackStart(new Label("Delay = "), false, false, 0);
+      delayControl.PackStart(new Label("Delay between iterations in ms "), 
+        false, false, 0);
       delayControl.PackStart(delayEntry, true, true, 0);
       result.PackStart(delayControl, false, false, 0);
+
+      var logToFileLabel = new Label("Write log to file ");
+      var logToFileButton = new ToggleButton(_engine.IsLogging ? "Yes" : "No");
+      logToFileButton.Clicked += (o, a) =>
+      {
+        _engine.IsLogging = !_engine.IsLogging;
+        logToFileButton.Label = _engine.IsLogging ? "Yes" : "No";
+      };
+      var logToFileControl = new HBox(false, 0) {Name = "logToFileControl"};
+      logToFileControl.PackStart(logToFileLabel, false, false, 0);
+      logToFileControl.PackStart(logToFileButton, false, false, 0);
+      result.PackStart(logToFileControl, false, false, 0);
+      result.ShowAll();
       
       return result;
     }
@@ -631,6 +793,8 @@ namespace run_charlie
     {
       var result = new VBox {Name = "resultsPage"};
       result.Add(new Label("Results"));
+      result.ShowAll();
+      
       return result;
     }
     
@@ -638,10 +802,10 @@ namespace run_charlie
     {
       _title = new VBox(false, 5)
       {
-        new Label(_simulator.Sim.GetTitle()) {Name = "title", Xalign = 0},
+        new Label(_engine.Sim.GetTitle()) {Name = "title", Xalign = 0},
         new Label
         {
-          Text = _simulator.Sim.GetDescr(),
+          Text = _engine.Sim.GetDescr(),
           Wrap = true, 
           Halign = Align.Start, 
           Xalign = 0
@@ -676,15 +840,15 @@ namespace run_charlie
       var loadBtn = new Button("Load");
       loadBtn.Clicked += (sender, args) =>
       {
-        _simulator.Load(pathEntry.Text);
+        _engine.Load(pathEntry.Text);
         try
         {
-          ((Label) _title.Children[0]).Text = _simulator.Sim.GetTitle();
-          ((Label) _title.Children[1]).Text = _simulator.Sim.GetDescr();
-          _configBuffer.Text = _simulator.Sim.GetConfig();
+          ((Label) _title.Children[0]).Text = _engine.Sim.GetTitle();
+          ((Label) _title.Children[1]).Text = _engine.Sim.GetDescr();
+          _configBuffer.Text = _engine.Sim.GetConfig();
         }
         catch (Exception e) { Logger.Warn(e.ToString()); }
-        _simulator.Init(
+        _engine.Init(
           _configBuffer.Text, 
           _canvas.AllocatedWidth, 
           _canvas.AllocatedHeight);
@@ -703,7 +867,7 @@ namespace run_charlie
 
       void Stop(object sender, EventArgs args)
       {
-        _simulator.Stop();
+        _engine.Stop();
         startBtn.Label = "Start";
         startBtn.Clicked -= Stop;
         startBtn.Clicked += Start;
@@ -711,7 +875,7 @@ namespace run_charlie
 
       void Start(object sender, EventArgs args)
       {
-        _simulator.Start();
+        _engine.Start();
         startBtn.Label = "Stop ";
         startBtn.Clicked -= Start;
         startBtn.Clicked += Stop;
@@ -720,17 +884,17 @@ namespace run_charlie
       var initBtn = new Button("Init");
       initBtn.Clicked += (sender, args) =>
       {
-        if (_simulator.Started) Stop(null, null);
+        if (_engine.Started) Stop(null, null);
         var timer = new Timer(20);
         timer.Elapsed += (o, eventArgs) =>
         {
-          if (_simulator.Running)
+          if (_engine.Running)
           {
             Logger.Say("Waiting for update thread to finish.");
             return;
           }
 
-          _simulator.Init(
+          _engine.Init(
             _configBuffer.Text, 
             _canvas.AllocatedWidth, 
             _canvas.AllocatedHeight);
@@ -748,8 +912,8 @@ namespace run_charlie
       var stepsBtn = new Button("R") {TooltipText = "Run x iterations"};
       stepsBtn.Clicked += (sender, args) =>
       {
-        if (_simulator.Running) return;
-        if (int.TryParse(stepsEntry.Text, out var x)) _simulator.Start(x);
+        if (_engine.Running) return;
+        if (int.TryParse(stepsEntry.Text, out var x)) _engine.Start(x);
         else Logger.Warn("Please enter a number >= 0.");
       };
       var runSteps = new HBox(false, 0) {stepsEntry, stepsBtn};
@@ -760,7 +924,7 @@ namespace run_charlie
         TooltipText = "Save the current render output as PNG",
         Name = "pictureBtn"
       };
-      pictureBtn.Clicked += (s, a) => _simulator.SaveImage();
+      pictureBtn.Clicked += (s, a) => _engine.SaveImage();
 
       var result = new HBox(false, 10);
       result.PackStart(initBtn, false, false, 0);
@@ -788,9 +952,9 @@ namespace run_charlie
         args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
         args.Cr.Stroke();
 
-        if (_simulator.RenderData == null) return;
+        if (_engine.RenderData == null) return;
 
-        var surface = new ImageSurface(_simulator.RenderData, Format.ARGB32,
+        var surface = new ImageSurface(_engine.RenderData, Format.ARGB32,
           _canvas.AllocatedWidth,
           _canvas.AllocatedHeight,
           4 * _canvas.AllocatedWidth);
@@ -799,7 +963,7 @@ namespace run_charlie
         surface.Dispose();
       };
 
-      _iterationLbl = new Label("i = " + _simulator.Iteration)
+      _iterationLbl = new Label("i = " + _engine.Iteration)
       {
         Halign = Align.Start,
         TooltipText = "Iterations, Elapsed time, Average elapsed time"
@@ -813,7 +977,7 @@ namespace run_charlie
     {
       _configBuffer = new TextBuffer(new TextTagTable())
       {
-        Text = _simulator.Sim.GetConfig()
+        Text = _engine.Sim.GetConfig()
       };
 
       var title = new Label("Configuration")
