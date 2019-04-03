@@ -370,20 +370,23 @@ namespace run_charlie
 
     public override string GetConfig()
     {
-      return "# The maximal angle between two cells\nVariety = 0.125\n" +
-             "# The size of a single cell\nCellRadius = 5\n" +
-             "# The maximal size of the plant\nMaxLength = 20\n" +
+      return "# The maximal angle between two cells\n" +
+             "Variety = 0.7\n" +
+             "# The size of a single cell\n" +
+             "CellRadius = 1\n" +
+             "# The maximal size of the plant\n" +
+             "MaxLength = 200\n" +
              "# The probability for a branch to sprout\n" +
-             "BranchProbability = 0.1\n" +
+             "BranchProbability = 0.01\n" +
              "RootCount = 10";
     }
 
     public override void Init(Dictionary<string, string> config)
     {
-      var cellRadius = GetDouble(config, "CellRadius", 0.125); 
-      var maxLength = GetInt(config, "MaxLength", 20); 
-      var branchProbability = GetDouble(config, "BranchProbability", 0.125);
-      var variety = GetDouble(config, "Variety", 0.125);
+      var cellRadius = GetDouble(config, "CellRadius", 1); 
+      var maxLength = GetInt(config, "MaxLength", 200); 
+      var branchProbability = GetDouble(config, "BranchProbability", 0.01);
+      var variety = GetDouble(config, "Variety", 0.7);
       var angleStart = - variety / 2;
       var angleEnd = variety / 2;
 
