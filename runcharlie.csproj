@@ -85,7 +85,7 @@
     <Compile Include="src\OptimizationFcts.cs" />
     <Compile Include="src\PcgRandom.cs" />
     <Compile Include="src\Pso.cs" />
-    <Compile Include="src\RunCharlie.cs" />
+    <Compile Include="src\Charlie.cs" />
     <Compile Include="src\Tuple.cs" />
   </ItemGroup>
   <ItemGroup>
