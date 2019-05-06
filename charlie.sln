@@ -1,6 +1,6 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensor-positioning", "sensor-positioning.csproj", "{728AAEE6-CD09-447C-97FA-EA43BC6E8C48}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sensor-positioning",  "charlie.csproj", "{728AAEE6-CD09-447C-97FA-EA43BC6E8C48}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

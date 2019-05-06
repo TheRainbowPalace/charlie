@@ -12,22 +12,6 @@ window {
     font-family: Andale Mono, monospace;
 }
 
-#prefPage {
-    margin: 15px 20px;
-}
-
-#simSubtitle, #generalSubtitle {
-    font-size: large;
-    padding-bottom: 5px;
-    margin-top: 10px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #939797;
-}
-
-#prefPageTitle {
-    font-size: x-large;
-}
-
 #root {
     margin-top: 15px;
 }
@@ -52,6 +36,7 @@ button {
     text-shadow: none;
     box-shadow: none;
     border-radius: 30px;
+    outline: none;
 }
 button:hover {background-color: #1A1B1B;}
 button:active {background-color: #C4484B;}
@@ -86,21 +71,20 @@ entry selection {
     padding: 1px 6px;
 }
 
-#delayControl entry {
+#config box entry {
     padding: 0;
     background-color: transparent;
     border: none;
     color: #C4484B;
     caret-color: #C4484B;
-    
 }
 
-#logToFileControl button {
+#config box button {
     padding: 0;
     background-color: transparent;
     color: #C4484B;
 }
-#logToFileControl button label {
+#config box button label {
     color: #C4484B;
 }
 
@@ -111,7 +95,7 @@ tooltip {
 }
 
 textview {
-    padding: 10px 5px 10px 0;
+    padding: 1px 5px 3px 0;
     font-size: medium;
     background: transparent;
     caret-color: #C4C4C4;
@@ -128,7 +112,7 @@ scrolledwindow undershoot, scrolledwindow overshoot {
     background: none;
 }
 
-#aboutTitle {
+#configTitle, #aboutTitle {
     font-size: medium;
     padding-bottom: 5px;
 }

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Cairo;
+using Geometry;
 using Optimization;
+using charlie;
 
-namespace run_charlie
+namespace charlie
 {
   public class DefaultSimulation : AbstractSimulation
   {
@@ -15,44 +17,50 @@ namespace run_charlie
     
     public override string GetTitle()
     {
-      return "Run Charlie";
+      return "Charlie";
+    }
+
+    public override string GetMeta()
+    {
+      return "Author: Jakob Rieke; Version: 1.0.0";
     }
 
     public override string GetDescr()
     {
-      return 
-        "RunCharlie is multi purpose simulation app. It tries not to apply " +
-        "to many rules on how the simulation is run and structured.";
+      return
+        "Charlie is multi purpose simulation app. It's goal is to provide a" +
+        "clean and simple API and tools to build, run and manage your " +
+        "simulations." +
+        "\nThis is the default demo simulation to give you a brief " +
+        "introduction (via play and learn) of how Charlies works." +
+        "\n\nA simulation is made up of 9 functions:\n" +
+        "- GetTitle() : string\n" +
+        "- GetDescr() : string\n" +
+        "- GetMeta() : string\n" +
+        "- GetConfig() : string\n" +
+        "- Init(model) : void\n" +
+        "- Update(deltaTime) : void\n" +
+        "- Render(width, height) : byte[]\n" +
+        "- Log() : string\n" +
+        "- End() : void\n";
     }
 
     public override string GetConfig()
     {
-      return "# This is an example configuration\n" +
+      return "# Here you can enter a textual description of the\n" +
+             "# simulation model\n" +
              "# Change the values and initialize the simulation to\n" +
              "# see the changes\n" +
              "MinRadius = 0\n" +
-             "MaxRadius = 60\n" +
-             "GrowRate = 0.03";
+             "MaxRadius = 100\n" +
+             "GrowRate = 1";
     }
 
-    public override void Init(Dictionary<string, string> config)
+    public override void Init(Dictionary<string, string> model)
     {
-      if (config.ContainsKey("MinRadius"))
-      {
-        _minRadius = int.TryParse(config["MinRadius"], out var minRadius)
-          ? minRadius : 0;
-      }
-      if (config.ContainsKey("MaxRadius"))
-      {
-        _maxRadius = int.TryParse(config["MaxRadius"], out var maxRadius)
-          ? maxRadius : 60;
-      }
-      if (config.ContainsKey("GrowRate"))
-      {
-        _growRate = float.TryParse(config["GrowRate"], out var growRate)
-          ? growRate : 0.03;
-      }
-      
+      _minRadius = GetInt(model, "MinRadius", 0);
+      _maxRadius = GetInt(model, "MaxRadius", 100);
+      _growRate = GetDouble(model, "GrowRate", 1);
       _radius = _maxRadius;
       _grow = false;
     }
@@ -60,14 +68,15 @@ namespace run_charlie
     public override void Update(long deltaTime)
     {
       if (_radius > _maxRadius || _radius < _minRadius) _grow = !_grow;
-      if (_grow) _radius += _growRate * deltaTime;
-      else _radius -= _growRate * deltaTime;
+      if (_grow) _radius += _growRate;
+      else _radius -= _growRate;
     }
 
-    public override void Render(Context ctx)
+    public override void Render(Context ctx, int width, int height)
     {
       ctx.SetSourceRGB(0.769, 0.282, 0.295);
-      ctx.Arc(200, 200, _radius, 0, 2 * Math.PI);
+      ctx.Arc((double) width / 2, (double) height / 2, 
+        _radius, 0, 2 * Math.PI);
       ctx.ClosePath();
       ctx.Fill();
     }
@@ -105,11 +114,11 @@ namespace run_charlie
              "Shift = 0";
     }
 
-    public override void Init(Dictionary<string, string> config)
+    public override void Init(Dictionary<string, string> model)
     {
-      _wavelength = GetDouble(config, "Wavelength", 200);
-      _amplitude = GetDouble(config, "Amplitude", 100);
-      _shift = GetInt(config, "Shift", 0);
+      _wavelength = GetDouble(model, "Wavelength", 200);
+      _amplitude = GetDouble(model, "Amplitude", 100);
+      _shift = GetInt(model, "Shift", 0);
       _y = 200;
       _time = 0;
       _trailLength = 40;
@@ -125,7 +134,7 @@ namespace run_charlie
       if (_trail.Count > _trailLength) _trail.RemoveAt(_trailLength - 1);
     }
 
-    public override void Render(Context ctx)
+    public override void Render(Context ctx, int width, int height)
     {
       for (var i = 0; i < _trail.Count; i++)
       {
@@ -138,144 +147,6 @@ namespace run_charlie
     }
   }
   
-  public class SoccerExample : AbstractSimulation
-  {
-    // A player is marked as a vector (x, y, rotation, velocity)
-    private double[][] _teamA;
-    private double[][] _teamB;
-    private Color _colorTeamA;
-    private Color _colorTeamB;
-    private int _sizeTeamA;
-    private int _sizeTeamB;
-    
-    public override string GetTitle()
-    {
-      return "Soccer Simulation";
-    }
-
-    public override string GetDescr()
-    {
-      return "A tiny soccer simulation.";
-    }
-
-    public override string GetConfig()
-    {
-      return "SizeTeamA = 3\n" +
-             "SizeTeamB = 3";
-    }
-
-    public override void Init(Dictionary<string, string> config)
-    {
-      _sizeTeamA = 4;
-      _sizeTeamB = 4;
-      _teamA = new double[_sizeTeamA][];
-      _teamB = new double[_sizeTeamB][];
-      for (var i = 0; i < _sizeTeamA; i++)
-      {
-        _teamA[i] = new[] {20, 20 * (i + 1), 1.0, 0};
-      }
-      for (var i = 0; i < _sizeTeamB; i++)
-      {
-        _teamB[i] = new[] {380, 20 * (i + 1), 1.0, 0};
-      }
-      _colorTeamA = new Color(0.769, 0.282, 0.295);
-      _colorTeamB = new Color(0.004, 1, 0.854);
-    }
-
-    public override void Update(long deltaTime) {}
-
-    private static void RenderPlayer(Context ctx, double[] player, Color color)
-    {
-      ctx.SetSourceColor(color);
-      ctx.LineWidth = 1;
-      ctx.Arc(player[0], player[1], 5, 0, 2 * Math.PI);
-      ctx.ClosePath();
-      ctx.Fill();
-      ctx.Arc(player[0], player[1], 7, 0, 2 * Math.PI);
-      ctx.ClosePath();
-      ctx.Stroke();
-    }
-    
-    public override void Render(Context ctx)
-    {
-      foreach (var player in _teamA) RenderPlayer(ctx, player, _colorTeamA);
-      foreach (var player in _teamB) RenderPlayer(ctx, player, _colorTeamB);
-    }
-  }
-
-  public class SwarmExample : AbstractSimulation
-  {
-    private Swarm _swarm;
-    private int _xOffset;
-    private int _yOffset;
-    
-    public override string GetTitle()
-    {
-      return "SWAAARM";
-    }
-
-    public override string GetDescr()
-    {
-      return "Present yourself with a particle swarm and never forget to be" +
-             "amazing.";
-    }
-
-    public override string GetConfig()
-    {
-      return "XOffset = 200\n" +
-             "YOffset = 200\n";
-    }
-
-    public override void Init(Dictionary<string, string> config)
-    {
-      _xOffset = GetInt(config, "XOffset", 200);
-      _yOffset = GetInt(config, "YOffset", 200);
-      
-      var sp = new SearchSpace(2, 100);
-      _swarm = Pso.SwarmSpso2011(sp, OptimizationFct.SphereFct);
-      _swarm.Initialize();
-    }
-
-    public override void Update(long deltaTime)
-    {
-      _swarm.IterateOnce();
-    }
-
-    public override void Render(Context ctx)
-    {
-      foreach (var p in _swarm.Particles)
-      {
-        ctx.SetSourceColor(new Color(0.769, 0.282, 0.295));
-        ctx.LineWidth = 1;
-        ctx.Arc(
-          _xOffset + p.Position[0], 
-          _yOffset + p.Position[1], 
-          5, 0, 2 * Math.PI);
-        ctx.ClosePath();
-        ctx.Fill();
-      }
-      
-      var globalBest = "Best: (";
-      for (var i = 0; i < _swarm.GlobalBest.Length; i++)
-      {
-        globalBest += Math.Round(_swarm.GlobalBest[i], 3);
-        if (i < _swarm.GlobalBest.Length - 1) globalBest += " ";
-      }
-
-      globalBest += ") - " + Math.Round(_swarm.GlobalBestValue, 3);
-      
-      ctx.SetSourceColor(new Color(.7, .7, .7));
-      ctx.SetFontSize(13);
-      ctx.MoveTo(12, 20);
-      ctx.ShowText(globalBest);
-      
-      ctx.Rectangle(_xOffset - 100, _xOffset - 100, 200, 200);
-      ctx.LineWidth = 1;
-      ctx.SetDash(new []{3.0}, 4);
-      ctx.Stroke();
-    }
-  }
-
   internal class Branch
   {
     private int _maxLength;
@@ -381,16 +252,16 @@ namespace run_charlie
              "RootCount = 10";
     }
 
-    public override void Init(Dictionary<string, string> config)
+    public override void Init(Dictionary<string, string> model)
     {
-      var cellRadius = GetDouble(config, "CellRadius", 1); 
-      var maxLength = GetInt(config, "MaxLength", 200); 
-      var branchProbability = GetDouble(config, "BranchProbability", 0.01);
-      var variety = GetDouble(config, "Variety", 0.7);
+      var cellRadius = GetDouble(model, "CellRadius", 1); 
+      var maxLength = GetInt(model, "MaxLength", 200); 
+      var branchProbability = GetDouble(model, "BranchProbability", 0.01);
+      var variety = GetDouble(model, "Variety", 0.7);
       var angleStart = - variety / 2;
       var angleEnd = variety / 2;
 
-      var rootCount = GetInt(config, "RootCount", 10);
+      var rootCount = GetInt(model, "RootCount", 10);
       _roots = new Branch[rootCount];
       for (var i = 0; i < rootCount; i++)
       {
@@ -404,9 +275,197 @@ namespace run_charlie
       foreach (var branch in _roots) branch.Update();
     }
 
-    public override void Render(Context ctx)
+    public override void Render(Context ctx, int width, int height)
     {
       foreach (var branch in _roots) branch.Render(ctx, 200, 350);
+    }
+  }
+}
+
+namespace Y
+{
+  public class AxisBehaviour : AbstractSimulation
+  {
+    private Color _debugColor;
+    private Color _mainColor;
+    private Color _wheel1Color;
+    private Color _wheel2Color;
+    private Color _wheel3Color;
+
+    private Vector2 _reference;
+    private Vector2 _center;
+    private Vector2 _arm1;
+    private Vector2 _arm2;
+    private Vector2 _arm3;
+    private double _arm1Rot;
+    private double _arm2Rot;
+    private double _arm3Rot;
+    private double _wheelWidth;
+    private double _wheelHeight;
+    private double _wheelSuspension;
+    private Vector2 _wheel1;
+    private Vector2 _wheel2;
+    private Vector2 _wheel3;
+    private double _wheel1Rot;
+    private double _wheel2Rot;
+    private double _wheel3Rot;
+    
+    public override string GetTitle()
+    {
+      return "Three Wheel Behaviour";
+    }
+
+    public override string GetDescr()
+    {
+      return "Simulate the behaviour of three connected wheels";
+    }
+
+    public override string GetConfig()
+    {
+      return "# The length of each arm\n" +
+             "ArmLength = 124\n" +
+             "# The angle between arm 2 and 3\n" +
+             "ArmAngle = 120";
+    }
+
+    public override void Init(Dictionary<string, string> model)
+    {
+      _debugColor = new Color(0, 0, 0);
+      _mainColor = new Color(0, 0, 0);
+      _wheel1Color = new Color(0.753, 0.274, 0.275);
+      _wheel2Color = new Color(0.187, 0.815, 0.909);
+      _wheel3Color = new Color(1, 0.861, 0);
+      
+      _reference = new Vector2(300, 300);
+      _center = new Vector2(200, 200);
+      var armAngle = GetDouble(model, "ArmAngle", 120);
+      _arm1Rot = 180;
+      _arm2Rot = -armAngle / 2;
+      _arm3Rot = armAngle / 2;
+      var armLength = GetDouble(model, "ArmLength", 124);
+      _arm1 = _center.Move(_arm1Rot, armLength);
+      _arm2 = _center.Move(_arm2Rot, armLength);
+      _arm3 = _center.Move(_arm3Rot, armLength);
+      
+      _wheelWidth = 5.6 * 3;
+      _wheelHeight = 21.4 * 3;
+      _wheelSuspension = 10;
+      _wheel1Rot = 0;
+      _wheel2Rot = 0;
+      _wheel3Rot = 0;
+      _wheel1 = _arm1.Move(_wheel1Rot, _wheelSuspension); 
+      _wheel2 = _arm2.Move(_wheel2Rot, _wheelSuspension); 
+      _wheel3 = _arm3.Move(_wheel3Rot, _wheelSuspension); 
+    }
+
+    public override void Update(long deltaTime)
+    {
+    }
+
+    private void RenderArm(Context ctx, double x, double y)
+    {
+      ctx.SetSourceColor(_debugColor);
+      ctx.NewPath();
+      ctx.MoveTo(_center.X, _center.Y);
+      ctx.LineTo(x, y);
+      ctx.LineWidth = 5;
+      ctx.Stroke();
+    }
+
+    private void RenderBody(Context ctx, bool debug = true)
+    {
+      // Render reference
+      ctx.SetSourceColor(_mainColor);
+      ctx.Arc(_reference.X, _reference.Y, 5, 0, Math.PI * 2);
+      ctx.Fill();
+      
+      if (debug)
+      {
+        ctx.SetSourceColor(_debugColor);
+        ctx.NewPath();
+        ctx.MoveTo(_center.X, _center.Y);
+        ctx.LineTo(_arm2.X + 40, _center.Y);
+        ctx.LineWidth = .5;
+        ctx.Stroke();
+        
+        ctx.MoveTo(_arm3.X + 40 + 5, _center.Y);
+        ctx.ShowText(_arm2Rot + "°");
+        ctx.NewPath();
+        ctx.Arc(_center.X, _center.Y, 40, 0, -Math.PI * _arm2Rot / 180);
+        ctx.Stroke();
+      }
+      
+      RenderArm(ctx, _arm1.X, _arm1.Y);
+      RenderArm(ctx, _arm2.X, _arm2.Y);
+      RenderArm(ctx, _arm3.X, _arm3.Y);
+      
+      // Render center
+      ctx.SetSourceColor(_mainColor);
+      ctx.Arc(_center.X, _center.Y, 9.75, 0, Math.PI * 2);
+      ctx.Fill();
+      ctx.Arc(_center.X, _center.Y, 13.1, 0, Math.PI * 2);
+      ctx.LineWidth = 4;
+      ctx.Stroke();
+    }
+    
+    private void RenderWheel(Context ctx, double x, double y, 
+      double rot, Color color, bool inverse = false)
+    {
+      var radius = _wheelHeight / 15.0;
+      const double degrees = Math.PI / 180.0;
+      y -= _wheelHeight / 2;
+      if (inverse) x -= _wheelWidth;
+
+      ctx.NewSubPath();
+      ctx.Arc(x + _wheelWidth - radius, y + radius, radius, 
+        -90 * degrees, 0 * degrees);
+      ctx.Arc(x + _wheelWidth - radius, y + _wheelHeight - radius, 
+        radius, 0 * degrees, 90 * degrees);
+      ctx.Arc(x + radius, y + _wheelHeight - radius, 
+        radius, 90 * degrees, 180 * degrees);
+      ctx.Arc(x + radius, y + radius, radius, 
+        180 * degrees, 270 * degrees);
+      ctx.ClosePath();
+
+      ctx.SetSourceColor(color);
+      ctx.FillPreserve();
+      ctx.SetSourceRGB(0, 0, 0);
+      ctx.LineWidth = 4;
+      ctx.Stroke();
+
+      x = inverse ? x + _wheelWidth : x;
+      y += _wheelHeight / 2;
+      // Render top
+      ctx.SetSourceColor(color);
+      ctx.LineCap = LineCap.Round;
+      ctx.Arc(x, y, 1.95 * 3, 0, Math.PI * 2);
+      ctx.FillPreserve();
+      ctx.SetSourceColor(_mainColor);
+      ctx.Stroke();
+      
+      // Render wheel suspension
+      var k = new Vector2(x, y).Move(rot, _wheelSuspension);
+      ctx.NewPath();              
+      ctx.MoveTo(x, y);
+      ctx.LineTo(k.X, k.Y);
+      ctx.SetSourceColor(_mainColor);
+      ctx.Stroke();
+    }
+    
+    public override void Render(Context ctx, int width, int height)
+    {
+      ctx.SetSourceRGB(0.816, 0.816, 0.816);
+      ctx.Rectangle(0, 0, width, height);
+      ctx.Fill();
+
+      ctx.Translate(0, 100);
+      ctx.Scale(1.5, 1.5);
+      ctx.SelectFontFace("Andale Mono", FontSlant.Normal, FontWeight.Normal);
+      
+      RenderWheel(ctx, _arm1.X, _arm1.Y, 0, _wheel1Color, true);
+      RenderWheel(ctx, _arm2.X, _arm2.Y, -30, _wheel2Color);
+      RenderWheel(ctx, _arm3.X, _arm3.Y, 30, _wheel3Color);
+      RenderBody(ctx);
     }
   }
 }

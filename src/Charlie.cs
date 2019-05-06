@@ -4,12 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Timers;
 using Cairo;
 using Gdk;
-using GLib;
 using Gtk;
 using MathNet.Numerics.Random;
 using Application = Gtk.Application;
@@ -19,7 +17,7 @@ using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
 
-namespace run_charlie
+namespace charlie
 {
   /// <summary>
   /// A basic interface to load 
@@ -174,6 +172,9 @@ namespace run_charlie
     public Simulation(string complexPath)
     {
       var parsed = ParseComplexPath(complexPath);
+      Path = parsed[0];
+      ClassName = parsed[1];
+      ComplexPath = parsed[0] + parsed[1];
       Load(parsed[0], parsed[1]);
     }
     
@@ -293,9 +294,9 @@ namespace run_charlie
       return Proxy.GetConfig(Id);
     }
 
-    public void Init(Dictionary<string, string> config)
+    public void Init(Dictionary<string, string> model)
     {
-      Proxy.Init(Id, config);
+      Proxy.Init(Id, model);
     }
 
     public void End()
@@ -393,7 +394,7 @@ namespace run_charlie
       OutputDir = Path.Combine(
         Environment.GetFolderPath(
           Environment.SpecialFolder.UserProfile), 
-        ".runcharlie", 
+        ".charlie", 
         projectName);
       
       if (!Directory.Exists(OutputDir)) Directory.CreateDirectory(OutputDir);
@@ -476,6 +477,7 @@ namespace run_charlie
       IsRendering = true;
       RenderWidth = 400;
       RenderHeight = 400;
+      Iteration = -1;
     }
     
     private void Log(string message)
@@ -490,7 +492,7 @@ namespace run_charlie
     {
       if (Running)
       {
-        run_charlie.Logger.Say("Please stop simulation first");
+        charlie.Logger.Say("Please stop simulation first");
         return;
       }
 
@@ -558,7 +560,7 @@ namespace run_charlie
       catch (Exception e)
       {
         Log("<error>" + e + "</error>");
-        run_charlie.Logger.Warn(e.ToString());
+        charlie.Logger.Warn(e.ToString());
       }
     }
 
@@ -590,7 +592,7 @@ namespace run_charlie
           catch (Exception e)
           {
             Log("<error>" + e + "</error>");
-            run_charlie.Logger.Warn(e.ToString());
+            charlie.Logger.Warn(e.ToString());
           }
 
           if (IsRendering) Thread.Sleep(SimDelay);
@@ -628,7 +630,7 @@ namespace run_charlie
         while (steps > 0 && Started)
         {
           try { Instance.Update(20); }
-          catch (Exception e) { run_charlie.Logger.Warn(e.ToString()); }
+          catch (Exception e) { charlie.Logger.Warn(e.ToString()); }
           Iteration++;
           steps--;
         }
@@ -644,7 +646,7 @@ namespace run_charlie
         catch (Exception e)
         {
           Log("<error>" + e + "</error>");
-          run_charlie.Logger.Warn(e.ToString());
+          charlie.Logger.Warn(e.ToString());
         }
       
         Started = false;
@@ -668,7 +670,7 @@ namespace run_charlie
       catch (Exception e)
       {
         Log("<error position=\"End\">" + e + "</error>");
-        run_charlie.Logger.Warn(e.ToString());
+        charlie.Logger.Warn(e.ToString());
       }
       
       Log("<iterations>" + Iteration + "</iterations>");
@@ -684,7 +686,7 @@ namespace run_charlie
     {
       throw new NotImplementedException();
 //      _simulationThread.Interrupt();
-      OnAbort?.Invoke(null, EventArgs.Empty);
+//      OnAbort?.Invoke(null, EventArgs.Empty);
     }
   }
 
@@ -742,13 +744,16 @@ namespace run_charlie
 
     private void LoadAndInstantiate(string complexPath)
     {
-      var sim = new Simulation(complexPath);
-      _sims.Add(sim);
-      _runs.Add(new SimRun(sim.Spawn()));
+      var parsed = Simulation.ParseComplexPath(complexPath);
+      LoadAndInstantiate(parsed[0], parsed[1]);
     }
     
     private void LoadAndInstantiate(string path, string className)
     {
+      foreach (var s in _sims)
+      {
+        if (s.Path == path && s.ClassName == className) return;
+      }
       var sim = new Simulation(path, className);
       _sims.Add(sim);
       _runs.Add(new SimRun(sim.Spawn()));
@@ -757,7 +762,7 @@ namespace run_charlie
     private void LoadDefault()
     {
       var path = AppDomain.CurrentDomain.BaseDirectory + "Examples.dll";
-      const string className = "run_charlie.DefaultSimulation";
+      const string className = "charlie.DefaultSimulation";
       LoadAndInstantiate(path, className);
     }
 
@@ -847,6 +852,8 @@ namespace run_charlie
         {
           if (_sims.Count < 1) continue;
           
+          _runs.RemoveAll(run =>
+            run.Instance.Proxy.ClassName == _sims.Last().ClassName);
           _sims.Last().Unload();
           _sims.Remove(_sims.Last());
         }
@@ -880,11 +887,16 @@ namespace run_charlie
             RenderInfo("Use syntax: 'start x' where x is the run-id");
             continue;
           }
-
+          
           if (!int.TryParse(line[1], out var runId)) continue;
           foreach (var run in _runs)
           {
             if (run.Instance.Id != runId) continue;
+            if (run.Iteration < 1)
+            {
+              RenderInfo("Please initialize instance first");
+              break;
+            }
             run.Start();
             break;
           }
@@ -971,10 +983,39 @@ namespace run_charlie
     private TextBuffer _configBuffer;
 
 
+    public CharlieGraphicalApp()
+    {
+      LoadDefault();
+      
+      var provider = new CssProvider();
+      provider.LoadFromPath(GetResource("style.css"));
+      StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
+
+      var window = new Window(WindowType.Toplevel)
+      {
+        DefaultWidth = 380,
+        DefaultHeight = 600,
+        Title = "",
+        Role = "Charlie",
+        Resizable = true
+      };
+      window.Move(100, 100);
+      window.SetIconFromFile(GetResource("logo.png"));
+      window.Child = CreateRoot();
+      window.Destroyed += (sender, args) => Quit();
+      window.ShowAll();
+    }
+
+    private void Quit()
+    {
+      _activeRun.Stop();
+      Application.Quit();
+    }
+    
     private void LoadDefault()
     {
       Load(AppDomain.CurrentDomain.BaseDirectory + "/Examples.dll",
-        "run_charlie.DefaultSimulation");
+        "charlie.DefaultSimulation");
     }
     
     private void Load(string complexPath)
@@ -984,7 +1025,7 @@ namespace run_charlie
         var parsed = Simulation.ParseComplexPath(complexPath);
         Load(parsed[0], parsed[1]);
       }
-      catch (ArgumentException e)
+      catch (ArgumentException)
       {
         Logger.Warn("Invalid path, please specify class inside dll");
       }
@@ -996,7 +1037,11 @@ namespace run_charlie
       try
       {
         _sim = new Simulation(path, className);
-        _activeRun = new SimRun(_sim.Spawn());
+        _activeRun = new SimRun(_sim.Spawn())
+        {
+          RenderHeight = 800, 
+          RenderWidth = 800
+        };
         _activeRun.OnUpdate += (sender, args) =>
         {
           Application.Invoke((s, a) => AfterUpdate());
@@ -1008,83 +1053,6 @@ namespace run_charlie
         _sim = null;
         LoadDefault();
       }
-    }
-    
-    public CharlieGraphicalApp()
-    {
-      LoadDefault();
-      
-      var provider = new CssProvider();
-      provider.LoadFromPath(GetResource("style.css"));
-      StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
-      
-      var window = new Window(WindowType.Toplevel)
-      {
-        WidthRequest = 440,
-        HeightRequest = 600,
-        Title = "",
-        Role = "RunCharlie",
-        Resizable = false
-      };
-      window.Destroyed += (sender, args) => Quit();
-      window.Move(100, 100);
-      window.SetIconFromFile(GetResource("logo.png"));
-
-      Box prefPage = null;
-      Box resultsPage = null;
-      var simPage = CreateSimPage();
-      
-      var root = new ScrolledWindow
-      {
-        OverlayScrolling = false,
-        VscrollbarPolicy = PolicyType.External,
-        HscrollbarPolicy = PolicyType.Never,
-        MinContentHeight = 600,
-        MaxContentWidth = 400,
-        Child = simPage
-      };
-      
-      void SetPage(Widget page)
-      {
-        if (root.Child == page) return;
-        root.Remove(root.Child);
-        root.Add(page);
-      }
-
-      ModifierType mod;
-      window.KeyPressEvent += (o, a) =>
-      {
-        mod = a.Event.State & Accelerator.DefaultModMask;
-        if (mod != ModifierType.ControlMask) return;
-        if (a.Event.Key == Gdk.Key.Key_1)
-        {
-          if (prefPage == null) prefPage = CreatePrefPage();
-          SetPage(prefPage);
-        }
-        else if (a.Event.Key == Gdk.Key.Key_2) SetPage(simPage);
-        else if (a.Event.Key == Gdk.Key.Key_3)
-        {
-          if (resultsPage == null) resultsPage = CreateResultPage();
-          SetPage(resultsPage);
-        }
-      };
-      window.Child = root;
-      window.ShowAll();
-      
-      void Init (object o, DrawnArgs a)
-      {
-        _activeRun.Init(
-          _activeRun.Instance.GetConfig());
-        _canvas.Drawn -= Init;
-      }
-
-      _canvas.Drawn += Init;
-    }
-
-    private void Quit()
-    {
-      _activeRun.Stop();
-      Application.Quit();
     }
     
     private static string GetResource(string resource)
@@ -1100,48 +1068,55 @@ namespace run_charlie
         ", e = " + _activeRun.ElapsedTime / 1000 + "s" +
         ", a = " + Math.Round(_activeRun.AverageIterationTime, 2) + "ms";
     }
-
-    private Box CreatePrefPage()
+    
+    private Widget CreateRoot()
     {
-      var result = new VBox (false, 3) {Name = "prefPage"};
-      result.PackStart(new Label("Preferences")
+      _title = new VBox(false, 5)
       {
-        Name = "prefPageTitle",
+        new Label(_activeRun.Instance.GetTitle()) {Name = "title", Xalign = 0},
+        new Label
+        {
+          Text = _activeRun.Instance.GetDescr(),
+          Wrap = true, 
+          Halign = Align.Start, 
+          Xalign = 0
+        }
+      };
+
+      var content = new VBox(false, 20) {Name = "root"};
+      content.Add(_title);
+      content.Add(CreateModuleControl());
+      content.Add(CreateCanvas());
+      content.Add(CreateControls());
+      content.Add(CreateModelInput());
+      content.Add(CreateConfig());
+      content.Add(CreateAbout());
+      content.SizeAllocated += (o, a) => content.QueueDraw();
+      
+      var result = new ScrolledWindow
+      {
+        OverlayScrolling = false,
+        VscrollbarPolicy = PolicyType.External,
+        HscrollbarPolicy = PolicyType.Never,
+        MinContentWidth = 380,
+        MinContentHeight = 420,
+        Child = content
+      };
+      return result;
+    }
+
+    private Box CreateConfig()
+    {
+//      var generalSubtitleIcon = new Image(
+//        GetResource("general-prefs-icon.png"));
+//      generalSubtitleIcon.Pixbuf = generalSubtitleIcon.Pixbuf.ScaleSimple(
+//        15, 15, InterpType.Bilinear);
+
+      var title = new Label("Configuration") 
+      {
+        Name = "configTitle",
         Halign = Align.Start
-      }, false, false, 0);
-      
-      // General preferences
-      
-      var generalSubtitleIcon = new Image(
-        GetResource("general-prefs-icon.png"));
-      generalSubtitleIcon.Pixbuf = generalSubtitleIcon.Pixbuf.ScaleSimple(
-        15, 15, InterpType.Bilinear);
-
-      var generalSubtitle = new HBox(false, 7) {Name = "generalSubtitle"};
-      generalSubtitle.PackStart(generalSubtitleIcon, false, false, 0);
-      generalSubtitle.PackStart(new Label("General") {Xalign = 0},
-        false, true, 0);
-      
-      result.PackStart(generalSubtitle, false, false, 0);
-
-      var theme = new HBox(false, 10) {Halign = Align.Start};
-      theme.PackStart(new Label("Theme"), false, true, 0);
-      result.PackStart(theme, false, false, 0);
-      
-      // Simulation preferences
-
-      var simSubtitleIcon = new Image(GetResource("sim-prefs-icon.png"));
-      simSubtitleIcon.Pixbuf = simSubtitleIcon.Pixbuf.ScaleSimple(
-        15, 15, InterpType.Bilinear);
-      
-      var simSubtitle = new HBox(false, 7) {Name = "simSubtitle"};
-      simSubtitle.PackStart(simSubtitleIcon, false, false, 0);
-      simSubtitle.PackStart(new Label("Simulation") 
-      {
-        Xalign = 0
-      }, false, true, 0);
-      
-      result.PackStart(simSubtitle, false, false, 0);
+      };
       
       var delayEntry = new Entry("" + _activeRun.SimDelay)
       {
@@ -1156,14 +1131,10 @@ namespace run_charlie
           _activeRun.SimDelay = value;
         }
       };
-      var delayControl = new HBox(false, 0)
-      {
-        Name = "delayControl"
-      };
-      delayControl.PackStart(new Label("Delay between iterations in ms "), 
-        false, false, 0);
-      delayControl.PackStart(delayEntry, true, true, 0);
-      result.PackStart(delayControl, false, false, 0);
+      var delayControl = new HBox(false, 0);
+      delayControl.PackStart(new Label(
+          "Delay between iterations in ms "), false, false, 0);
+      delayControl.PackStart(delayEntry, false, false, 0);
 
       var logToFileLabel = new Label("Write log to file ");
       var logToFileButton = new ToggleButton(
@@ -1173,49 +1144,19 @@ namespace run_charlie
         _activeRun.IsLogging = !_activeRun.IsLogging;
         logToFileButton.Label = _activeRun.IsLogging ? "Yes" : "No";
       };
-      var logToFileControl = new HBox(false, 0) {Name = "logToFileControl"};
+      var logToFileControl = new HBox(false, 0);
       logToFileControl.PackStart(logToFileLabel, false, false, 0);
       logToFileControl.PackStart(logToFileButton, false, false, 0);
+
+      var result = new VBox (false, 0) {Name = "config"};
+      result.PackStart(title, false, false, 0);
+      result.PackStart(delayControl, false, false, 0);
       result.PackStart(logToFileControl, false, false, 0);
       result.ShowAll();
       
       return result;
     }
 
-    private static Box CreateResultPage()
-    {
-      var result = new VBox {Name = "resultsPage"};
-      result.Add(new Label("Results"));
-      result.ShowAll();
-      
-      return result;
-    }
-    
-    private Box CreateSimPage()
-    {
-      _title = new VBox(false, 5)
-      {
-        new Label(_activeRun.Instance.GetTitle()) {Name = "title", Xalign = 0},
-        new Label
-        {
-          Text = _activeRun.Instance.GetDescr(),
-          Wrap = true, 
-          Halign = Align.Start, 
-          Xalign = 0
-        }
-      };
-
-      var result = new VBox(false, 20) {Name = "root"};
-      result.Add(_title);
-      result.Add(CreateModuleControl());
-      result.Add(CreateCanvas());
-      result.Add(CreateControls());
-      result.Add(CreateConfig());
-      result.Add(CreateAbout());
-      result.SizeAllocated += (o, a) => result.QueueDraw();
-      return result;
-    }
-    
     private Box CreateModuleControl()
     {
       var defaultPath = Path.Combine(
@@ -1347,10 +1288,12 @@ namespace run_charlie
 
         if (_activeRun.RenderData == null) return;
 
-        var surface = new ImageSurface(_activeRun.RenderData, Format.ARGB32,
-          _canvas.AllocatedWidth,
-          _canvas.AllocatedHeight,
-          4 * _canvas.AllocatedWidth);
+        var surface = new ImageSurface(
+          _activeRun.RenderData, Format.ARGB32,
+          _activeRun.RenderWidth, 
+          _activeRun.RenderHeight,
+          4 * _activeRun.RenderWidth);
+        args.Cr.Scale(.5, .5);
         args.Cr.SetSourceSurface(surface, 0, 0);
         args.Cr.Paint();
         surface.Dispose();
@@ -1361,19 +1304,29 @@ namespace run_charlie
         Halign = Align.Start,
         TooltipText = "Iterations, Elapsed time, Average elapsed time"
       };
+      
+      void Init (object o, DrawnArgs a)
+      {
+        _activeRun.Init(_activeRun.Instance.GetConfig());
+        _canvas.Drawn -= Init;
+      }
+      _canvas.Drawn += Init;
 
-      var result = new VBox(false, 7) {renderTitle, _canvas, _iterationLbl};
+      var result = new VBox(false, 7)
+      {
+        renderTitle, _canvas, _iterationLbl
+      };
       return result;
     }
 
-    private Box CreateConfig()
+    private Box CreateModelInput()
     {
       _configBuffer = new TextBuffer(new TextTagTable())
       {
         Text = _activeRun.Instance.GetConfig()
       };
 
-      var title = new Label("Configuration")
+      var title = new Label("Model")
       {
         Xalign = 0, Valign = Align.Start
       };
