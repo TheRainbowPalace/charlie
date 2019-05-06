@@ -1,0 +1,43 @@
+- Done: Fix Rendering is not done on the logic thread
+- Done: Block Load button until simulation is loaded
+- Done: Fix first initialization is done to early
+- Done: Fix simulations are not hot reloading
+- Done: Add about section
+- Done: Fix text overflow on long config input lines
+- Done: Select window after creation
+- Done: Set Stride dynamically when rendering simulation
+- Done: Add app settings component (dark or light mode etc.)  
+- Todo: Remove delta time from Simulation.Update
+- Todo: Stop simulation thread on Ctrl+C
+- Todo: Hide titlebar on MacOs
+- Done: Fix low quality rendering duo to ImageSurface size
+- Todo: Create root node asynchronously
+- Done: Fix text overflow on too many iterations / time
+- Todo: Clear events when switching between pages (fixes assertion error 
+  GDK_IS_FRAME_CLOCK)
+- Todo: Fix "Assertion failed: (_cairo_path_fixed_last_op (path) == 
+  CAIRO_PATH_OP_LINE_TO), function _cairo_path_fixed_drop_line_to,
+-   file cairo-path-fixed.c, line 392." when running Growth simulation
+- Todo: Fix NullPointerException when loading "..RunCharlie/Examples."
+  instead of "..RunCharlie/Examples.dll"
+- Todo: Abort simulation if a certain stopping time is passed
+- Todo: Add task-runner component (Allows to run scheduled simulations)
+- Done: Add a commandline version of RunCharlie (> charlie file -params)
+- Todo: Add magnetic scroll
+- Done: Add simulation speed option
+- Deprecated: Add option to set output (logging & picture) path
+- Done: Add option to enable and disable logging to file
+- Deprecated: Add option to enable and disable logging on simulation screen
+- Todo: Add selector for logging output format
+- Done: Add button & function to save pictures
+- Todo: Add option to compress saved images
+- Todo: Add option for image output format
+- Todo: Add button & function to save simulation video
+- Todo: Add option to compress saved videos
+- Todo: Add option for video output format
+- Todo: Add timeline to go back in time
+- Todo: Add syntax highlighting to model editor
+- Done: Add layout ability to scale
+- Done: Add label for average iteration duration
+- Todo: Add option to reset configuration to default
+- Todo: Add option to save configuration
