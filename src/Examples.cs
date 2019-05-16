@@ -17,7 +17,7 @@ namespace charlie
     
     public override string GetTitle()
     {
-      return "Charlie";
+      return "Introduction";
     }
 
     public override string GetMeta()
@@ -28,11 +28,11 @@ namespace charlie
     public override string GetDescr()
     {
       return
-        "Charlie is multi purpose simulation app. It's goal is to provide a" +
-        "clean and simple API and tools to build, run and manage your " +
-        "simulations." +
+        "Charlie is multi purpose simulation app. It's goal is to provide a " +
+        "clean and simple API as well as tools to debug, run and manage " +
+        "your simulations." +
         "\nThis is the default demo simulation to give you a brief " +
-        "introduction (via play and learn) of how Charlies works." +
+        "introduction.\n" +
         "\n\nA simulation is made up of 9 functions:\n" +
         "- GetTitle() : string\n" +
         "- GetDescr() : string\n" +

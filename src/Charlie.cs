@@ -8,10 +8,12 @@ using System.Text;
 using System.Timers;
 using Cairo;
 using Gdk;
+using GLib;
 using Gtk;
 using MathNet.Numerics.Random;
 using Application = Gtk.Application;
 using DateTime = System.DateTime;
+using Device = Gdk.Device;
 using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
 using Window = Gtk.Window;
@@ -434,6 +436,16 @@ namespace charlie
     }
   }
 
+  public class LogEventArgs : EventArgs
+  {
+    public readonly string Message;
+
+    public LogEventArgs(string message)
+    {
+      Message = message;
+    }
+  }
+  
   /// <summary>
   /// Manages an simulation instance.
   /// </summary>
@@ -462,6 +474,7 @@ namespace charlie
     
     public event EventHandler OnInit;
     public event EventHandler OnUpdate;
+    public event EventHandler<LogEventArgs> OnLog; 
     public event EventHandler OnEnd;
     public event EventHandler OnAbort;
     
@@ -482,9 +495,10 @@ namespace charlie
     
     private void Log(string message)
     {
+      OnLog?.Invoke(this, new LogEventArgs(message));
       if (IsLogging) Logger.Log(message);
     }
-    
+
     /// <summary>
     /// Save the current Render data as a PNG image.
     /// </summary>
@@ -492,14 +506,19 @@ namespace charlie
     {
       if (Running)
       {
-        charlie.Logger.Say("Please stop simulation first");
+        charlie.Logger.Say("Please stop the simulation first.");
+        return;
+      }
+      if (RenderData == null)
+      {
+        charlie.Logger.Say("The render output is empty.");
         return;
       }
 
       var rand = new Random();
       var title = "render-" + Instance.GetTitle().Replace(" ", "_") + "-" +
                   Math.Truncate(rand.NextDecimal() * 100000000);
-      
+
       var surface = new ImageSurface(RenderData, Format.ARGB32,
         RenderWidth, RenderHeight, 4 * RenderWidth);
       surface.WriteToPng(Path.Combine(Logger.OutputDir, title + ".png"));
@@ -550,7 +569,7 @@ namespace charlie
       {
         Log("<title>" + Instance.GetTitle() + "</title>");
         Log("<meta>" + Instance.GetMeta() + "</meta>");
-        Log("<config>" + model + "</config>");
+        Log("<model>" + model + "</model>");
         Instance.Init(ParseConfig(model));
         Log(Instance.Log());
         RenderData = Instance.Render(RenderWidth, RenderHeight);
@@ -560,7 +579,6 @@ namespace charlie
       catch (Exception e)
       {
         Log("<error>" + e + "</error>");
-        charlie.Logger.Warn(e.ToString());
       }
     }
 
@@ -592,7 +610,6 @@ namespace charlie
           catch (Exception e)
           {
             Log("<error>" + e + "</error>");
-            charlie.Logger.Warn(e.ToString());
           }
 
           if (IsRendering) Thread.Sleep(SimDelay);
@@ -646,7 +663,6 @@ namespace charlie
         catch (Exception e)
         {
           Log("<error>" + e + "</error>");
-          charlie.Logger.Warn(e.ToString());
         }
       
         Started = false;
@@ -669,8 +685,7 @@ namespace charlie
       }
       catch (Exception e)
       {
-        Log("<error position=\"End\">" + e + "</error>");
-        charlie.Logger.Warn(e.ToString());
+        Log("<error iteration=\"Last\">" + e + "</error>");
       }
       
       Log("<iterations>" + Iteration + "</iterations>");
@@ -925,6 +940,95 @@ namespace charlie
     }
   }
 
+  internal class LogTextView : DrawingArea
+  {
+    public int NumberOfLines = 100;
+    public int FontSize = 10;
+    public int Padding = 3;
+    private List<string> _lines = new List<string>();
+
+    public LogTextView()
+    {
+      for (var i = 0; i < NumberOfLines; i++) _lines.Add(".");
+    }
+
+    public void Log(string message)
+    {
+      _lines.Add(message);
+      if (_lines.Count > NumberOfLines) _lines.Remove(_lines[0]); 
+      QueueDraw();
+    }
+
+    public void Clear()
+    {
+      _lines.Clear();
+      for (var i = 0; i < NumberOfLines; i++) _lines.Add(".");
+      QueueDraw();
+    }
+    
+    protected override bool OnDrawn(Context ctx)
+    {
+      ctx.SelectFontFace("Andale Mono", FontSlant.Normal, FontWeight.Normal);
+      ctx.SetFontSize(FontSize);
+      ctx.SetSourceRGB(.65, .65, .65);
+      
+      var lineHeight = FontSize + Padding;
+      for (var i = 1; i <= _lines.Count; i++)
+      {
+        ctx.MoveTo(0, AllocatedHeight - i * lineHeight);
+        ctx.ShowText(_lines[_lines.Count - i]);
+      }
+      
+      return true;
+    }
+  }
+  
+  internal class LogOutput : Box
+  {
+    private LogTextView _logTextView;
+    
+    public LogOutput() : base(Orientation.Vertical, 0)
+    {
+      _logTextView = new LogTextView {HeightRequest = 150};
+      _logTextView.ShowAll();
+
+      var title = new Label("Log output");
+      var clearBtn = new Button("clear");
+      clearBtn.Clicked += (sender, args) => _logTextView.Clear();
+      var hideBtn = new Button("show");
+      
+      var titleBar = new HBox(false, 0) {Name = "titleBar"};
+      titleBar.PackStart(title, false, false, 0);
+      titleBar.PackEnd(hideBtn, false, false, 0);
+      titleBar.PackEnd(clearBtn, false, false, 0);
+      
+      var visible = false;
+      hideBtn.Clicked += (sender, args) =>
+      {
+        visible = !visible;
+        if (visible)
+        {
+          PackStart(_logTextView, true, true, 0);
+          hideBtn.Label = "hide";
+        }
+        else
+        {
+          Remove(_logTextView);
+          hideBtn.Label = "show";
+        }
+      };
+
+      PackStart(titleBar, false, false, 0);
+      
+      Name = "logOutput";
+    }
+
+    public void Log(string message)
+    {
+      _logTextView.Log(message);
+    }
+  }
+  
   public class CharlieGraphicalApp
   {
     public const string Version = "1.0.0";
@@ -935,6 +1039,7 @@ namespace charlie
     private SimRun _activeRun;
     
     private DrawingArea _canvas;
+    private LogOutput _logOutput;
     private Label _iterationLbl;
     private Box _title;
     private TextBuffer _configBuffer;
@@ -956,7 +1061,7 @@ namespace charlie
         Role = "Charlie",
         Resizable = true
       };
-      window.Move(100, 100);
+      window.Move(20, 80);
       window.SetIconFromFile(GetResource("logo.png"));
       window.Child = CreateRoot();
       window.Destroyed += (sender, args) => Quit();
@@ -988,6 +1093,13 @@ namespace charlie
       }
     }
     
+    /// <summary>
+    /// Load a simulation from a given .dll file and a classname and create
+    /// a simulation run (_activeRun).
+    /// Call AfterLoad() and initialize _activeRun. 
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="className"></param>
     private void Load(string path, string className)
     {
       _sim?.Unload();
@@ -1003,6 +1115,10 @@ namespace charlie
         {
           Application.Invoke((s, a) => AfterUpdate());
         };
+        _activeRun.OnLog += (sender, args) =>
+        {
+          Application.Invoke((s, a) => _logOutput.Log(args.Message));
+        };
       }
       catch (ArgumentException e)
       {
@@ -1017,6 +1133,16 @@ namespace charlie
       return AppDomain.CurrentDomain.BaseDirectory + "resources/" + resource;
     }
 
+    /// <summary>
+    /// Called after a simulation was loaded but not initialized.
+    /// </summary>
+    private void AfterLoad()
+    {
+      ((Label) _title.Children[0]).Text = _activeRun.Instance.GetTitle();
+      ((Label) _title.Children[1]).Text = _activeRun.Instance.GetDescr();
+      _configBuffer.Text = _activeRun.Instance.GetConfig();
+    }
+    
     private void AfterUpdate()
     {
       _canvas.QueueDraw();
@@ -1040,6 +1166,8 @@ namespace charlie
         }
       };
 
+      _logOutput = new LogOutput();
+      
       var content = new VBox(false, 20) {Name = "root"};
       content.Add(_title);
       content.Add(CreateModuleControl());
@@ -1049,8 +1177,8 @@ namespace charlie
       content.Add(CreateConfig());
       content.Add(CreateAbout());
       content.SizeAllocated += (o, a) => content.QueueDraw();
-      
-      var result = new ScrolledWindow
+
+      var mainArea = new ScrolledWindow
       {
         OverlayScrolling = false,
         VscrollbarPolicy = PolicyType.External,
@@ -1059,6 +1187,10 @@ namespace charlie
         MinContentHeight = 420,
         Child = content
       };
+
+      var result = new VBox(false, 0);
+      result.PackStart(mainArea, true, true, 0);
+      result.PackEnd(_logOutput, false, false, 0);
       return result;
     }
 
@@ -1082,7 +1214,6 @@ namespace charlie
       };
       delayEntry.Activated += (s, a) =>
       {
-        Console.WriteLine("Enter pressed");
         if (int.TryParse(delayEntry.Text, out var value) && value >= 0)
         {
           _activeRun.SimDelay = value;
@@ -1138,13 +1269,7 @@ namespace charlie
         }
         
         Load(pathEntry.Text);
-        try
-        {
-          ((Label) _title.Children[0]).Text = _activeRun.Instance.GetTitle();
-          ((Label) _title.Children[1]).Text = _activeRun.Instance.GetDescr();
-          _configBuffer.Text = _activeRun.Instance.GetConfig();
-        }
-        catch (Exception e) { Logger.Warn(e.ToString()); }
+        AfterLoad();
         _activeRun.Init(_configBuffer.Text);
       };
       
@@ -1305,7 +1430,7 @@ namespace charlie
       {
         Name = "aboutTitle", Halign = Align.Start
       };
-      var result =  new VBox(false, 1)
+      var result = new VBox(false, 1)
       {
         aboutTitle,
         new Label("RunCharlie v" + Version) {Halign = Align.Start},

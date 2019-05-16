@@ -54,6 +54,18 @@ entry selection {
     background: #C4484B;
 }
 
+#titleBar button {
+    margin: 0;
+    padding: 0 5px;
+    border-radius: 0;
+    font-size: 16px;
+}
+
+#logOutput {
+    padding: 0 20px;
+    border-top: 1px solid #1E1E1E;
+}
+
 #runSteps {
     border: 1px solid #010101;
     border-radius: 100px;
