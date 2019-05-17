@@ -976,7 +976,7 @@ namespace charlie
       for (var i = 1; i <= _lines.Count; i++)
       {
         ctx.MoveTo(0, AllocatedHeight - i * lineHeight);
-        ctx.ShowText(_lines[_lines.Count - i]);
+        if (_lines[_lines.Count - i] != null) ctx.ShowText(_lines[_lines.Count - i]);
       }
       
       return true;
@@ -1247,9 +1247,9 @@ namespace charlie
 
     private Box CreateModuleControl()
     {
-      var defaultPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "Examples.dll"
-      ) + " : run_charlie.DefaultSimulation";
+      var defaultPath = 
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Examples.dll") + 
+        " : charlie.DefaultSimulation";
       var pathEntry = new Entry(defaultPath)
       {
         PlaceholderText = "/path/to/your/module.dll", 
