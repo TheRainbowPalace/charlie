@@ -111,7 +111,8 @@ namespace charlie
     {
       return "Wavelength = 200\n" +
              "Amplitude = 100\n" +
-             "Shift = 0";
+             "Shift = 0\n" +
+             "TrailLength = 150";
     }
 
     public override void Init(Dictionary<string, string> model)
@@ -119,17 +120,16 @@ namespace charlie
       _wavelength = GetDouble(model, "Wavelength", 200);
       _amplitude = GetDouble(model, "Amplitude", 100);
       _shift = GetInt(model, "Shift", 0);
-      _y = 200;
+      _y = 0;
       _time = 0;
-      _trailLength = 40;
-      _shift = 0;
+      _trailLength = GetInt(model, "TrailLength", 150);
       _trail = new List<double>(_trailLength) {_y};
     }
 
     public override void Update(long deltaTime)
     {
       _time += deltaTime / _wavelength;
-      _y = 200 + Math.Sin(_time) * _amplitude;
+      _y = Math.Sin(_time) * _amplitude;
       _trail.Insert(0, _y);
       if (_trail.Count > _trailLength) _trail.RemoveAt(_trailLength - 1);
     }
@@ -139,7 +139,7 @@ namespace charlie
       for (var i = 0; i < _trail.Count; i++)
       {
         ctx.SetSourceRGB(0.769, 0.282, 0.295);
-        ctx.Arc(200 + _shift - 10 * i, _trail[i], 
+        ctx.Arc(width / 2 + _shift - 10 * i, height / 2.0 + _trail[i], 
           Math.Log(20.0, i + 2), 0, 2 * Math.PI);
         ctx.ClosePath();
         ctx.Fill();
