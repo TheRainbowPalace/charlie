@@ -107,7 +107,7 @@ tooltip {
 }
 
 textview {
-    padding: 1px 5px 3px 0;
+    padding: 0;
     font-size: medium;
     background: transparent;
     caret-color: #C4C4C4;
