@@ -33,7 +33,7 @@ namespace charlie
         "your simulations." +
         "\nThis is the default demo simulation to give you a brief " +
         "introduction.\n" +
-        "\n\nA simulation is made up of 9 functions:\n" +
+        "\nA simulation is made up of 9 functions:\n" +
         "- GetTitle() : string\n" +
         "- GetDescr() : string\n" +
         "- GetMeta() : string\n" +
@@ -47,10 +47,9 @@ namespace charlie
 
     public override string GetConfig()
     {
-      return "# Here you can enter a textual description of the\n" +
-             "# simulation model\n" +
-             "# Change the values and initialize the simulation to\n" +
-             "# see the changes\n" +
+      return "# Here you can modify the simulation model\n" +
+             "# The new model is loaded as soon as the simulation\n" +
+             "# is re-initialized\n\n" +
              "MinRadius = 0\n" +
              "MaxRadius = 100\n" +
              "GrowRate = 1";
@@ -83,7 +82,7 @@ namespace charlie
 
     public override string Log()
     {
-      return "Radius: " + _radius;
+      return "Radius: " + _radius + "\n";
     }
   }
 
@@ -110,16 +109,16 @@ namespace charlie
     public override string GetConfig()
     {
       return "Wavelength = 200\n" +
-             "Amplitude = 100\n" +
-             "Shift = 0\n" +
+             "Amplitude = 50\n" +
+             "Shift = 60\n" +
              "TrailLength = 150";
     }
 
     public override void Init(Dictionary<string, string> model)
     {
       _wavelength = GetDouble(model, "Wavelength", 200);
-      _amplitude = GetDouble(model, "Amplitude", 100);
-      _shift = GetInt(model, "Shift", 0);
+      _amplitude = GetDouble(model, "Amplitude", 50);
+      _shift = GetInt(model, "Shift", 60);
       _y = 0;
       _time = 0;
       _trailLength = GetInt(model, "TrailLength", 150);
