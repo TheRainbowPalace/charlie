@@ -495,6 +495,8 @@ namespace charlie
     
     private void Log(string message)
     {
+      if (string.IsNullOrEmpty(message)) return;
+      
       OnLog?.Invoke(this, new LogEventArgs(message));
       if (IsLogging) Logger.Log(message);
     }
@@ -567,9 +569,14 @@ namespace charlie
       
       try
       {
-        Log("<title>" + Instance.GetTitle() + "</title>");
-        Log("<meta>" + Instance.GetMeta() + "</meta>");
-        Log("<model>" + model + "</model>");
+        Log("<title>" + Instance.GetTitle() + "</title>\n");
+        Log("<meta>" + Instance.GetMeta() + "</meta>\n");
+        Log("<model>\n");
+        foreach (var value in model.Split('\n'))
+        {
+          Log("  " + value + "\n");
+        }
+        Log("</model>\n");
         Instance.Init(ParseConfig(model));
         Log(Instance.Log());
         RenderData = Instance.Render(RenderWidth, RenderHeight);
@@ -578,7 +585,7 @@ namespace charlie
       }
       catch (Exception e)
       {
-        Log("<error>" + e + "</error>");
+        Log("<error>" + e + "</error>\n");
       }
     }
 
@@ -662,7 +669,7 @@ namespace charlie
         }
         catch (Exception e)
         {
-          Log("<error>" + e + "</error>");
+          Log("<error>" + e + "</error>\n");
         }
       
         Started = false;
@@ -685,13 +692,13 @@ namespace charlie
       }
       catch (Exception e)
       {
-        Log("<error iteration=\"Last\">" + e + "</error>");
+        Log("<error iteration=\"Last\">" + e + "</error>\n");
       }
       
-      Log("<iterations>" + Iteration + "</iterations>");
-      Log("<elapsed-time>" + ElapsedTime + "</elapsed-time>");
+      Log("<iterations>" + Iteration + "</iterations>\n");
+      Log("<elapsed-time>" + ElapsedTime + "</elapsed-time>\n");
       Log("<average-time>" + AverageIterationTime + 
-          "</average-time>");
+          "</average-time>\n");
       Logger.WriteLogBuffer();
       
       OnEnd?.Invoke(null, EventArgs.Empty);
@@ -942,27 +949,55 @@ namespace charlie
 
   internal class LogTextView : DrawingArea
   {
-    public int NumberOfLines = 100;
+    public int MaxNumberOfLines = 100;
     public int FontSize = 10;
     public int Padding = 3;
+    private double _scrollX = 0;
+    private double _scrollY = 0;
     private List<string> _lines = new List<string>();
 
     public LogTextView()
     {
-      for (var i = 0; i < NumberOfLines; i++) _lines.Add(".");
+      Events = EventMask.ButtonPressMask | EventMask.KeyPressMask |
+               EventMask.ScrollMask;
+      CanFocus = true;
+      Focused += (o, args) => Console.WriteLine("Focus received");
+      ButtonPressEvent += (o, args) =>
+      {
+        IsFocus = true;
+        Console.WriteLine(args.Event.X + " " + args.Event.Y);
+      };
+      KeyPressEvent += (o, args) => Console.WriteLine("KP: " + args.Event.Key);
+      KeyReleaseEvent += (o, args) => Console.WriteLine("KR: " + args.Event.Key);
+      ScrollEvent += (o, args) =>
+      {
+        _scrollY += args.Event.Direction == ScrollDirection.Down
+          ? args.Event.DeltaY : -args.Event.DeltaY;
+        if (_scrollY < 0) _scrollY = 0;
+        else if (_scrollY > MaxNumberOfLines)
+          _scrollY = MaxNumberOfLines;
+        Console.WriteLine("Scroll: " + _scrollY);
+      };
     }
 
     public void Log(string message)
     {
-      _lines.Add(message);
-      if (_lines.Count > NumberOfLines) _lines.Remove(_lines[0]); 
+      if (string.IsNullOrEmpty(message)) return;
+      if (_lines.Count == 0) _lines.Add("");
+      
+      var split = message.Split('\n');
+      _lines[_lines.Count - 1] += split[0];
+      for (var i = 1; i < split.Length; i++)
+      {
+        _lines.Add(split[i]);
+        if (_lines.Count > MaxNumberOfLines) _lines.Remove(_lines[0]);
+      }
       QueueDraw();
     }
 
     public void Clear()
     {
       _lines.Clear();
-      for (var i = 0; i < NumberOfLines; i++) _lines.Add(".");
       QueueDraw();
     }
     
@@ -973,10 +1008,12 @@ namespace charlie
       ctx.SetSourceRGB(.65, .65, .65);
       
       var lineHeight = FontSize + Padding;
-      for (var i = 1; i <= _lines.Count; i++)
+      var visibleLines = AllocatedHeight / lineHeight;
+      if (visibleLines > MaxNumberOfLines) visibleLines = MaxNumberOfLines;
+      for (var i = 1; i <= visibleLines; i++)
       {
         ctx.MoveTo(0, AllocatedHeight - i * lineHeight);
-        if (_lines[_lines.Count - i] != null) ctx.ShowText(_lines[_lines.Count - i]);
+        ctx.ShowText(i - 1 < _lines.Count ? _lines[_lines.Count - i] : ".");
       }
       
       return true;
