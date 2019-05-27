@@ -4,9 +4,19 @@ using Cairo;
 using Geometry;
 using Optimization;
 using charlie;
+using static System.Math;
 
 namespace charlie
 {
+  internal struct Moon
+  {
+    public double X;
+    public double Y;
+    public double Phase;
+    public double LunarDistance;
+    public double Radius;
+  }
+  
   public class DefaultSimulation : AbstractSimulation
   {
     private int _minRadius;
@@ -14,10 +24,11 @@ namespace charlie
     private double _growRate;
     private double _radius;
     private bool _grow;
+    private Moon _moon;
     
     public override string GetTitle()
     {
-      return "Introduction";
+      return "Hello World";
     }
 
     public override string GetMeta()
@@ -62,6 +73,10 @@ namespace charlie
       _growRate = GetDouble(model, "GrowRate", 1);
       _radius = _maxRadius;
       _grow = false;
+      _moon = new Moon {
+        X = 0, Y = 200, Phase = 0, 
+        LunarDistance = 120, Radius = 20
+      };
     }
 
     public override void Update(long deltaTime)
@@ -69,13 +84,23 @@ namespace charlie
       if (_radius > _maxRadius || _radius < _minRadius) _grow = !_grow;
       if (_grow) _radius += _growRate;
       else _radius -= _growRate;
+
+      _moon.Phase++;
+      if (_moon.Phase > 360) _moon.Phase = 0;
+      _moon.X = _moon.LunarDistance / Cos(PI * _moon.Phase / 180);
+      _moon.Y = _moon.LunarDistance / Sin(PI * _moon.Phase / 180);
     }
 
     public override void Render(Context ctx, int width, int height)
     {
       ctx.SetSourceRGB(0.769, 0.282, 0.295);
       ctx.Arc((double) width / 2, (double) height / 2, 
-        _radius, 0, 2 * Math.PI);
+        _radius, 0, 2 * PI);
+      ctx.ClosePath();
+      ctx.Fill();
+      
+      ctx.Arc((double) width / 2 + _moon.X, (double) height / 2 + _moon.Y, 
+        _moon.Radius, 0, 2 * PI);
       ctx.ClosePath();
       ctx.Fill();
     }
@@ -128,7 +153,7 @@ namespace charlie
     public override void Update(long deltaTime)
     {
       _time += deltaTime / _wavelength;
-      _y = Math.Sin(_time) * _amplitude;
+      _y = Sin(_time) * _amplitude;
       _trail.Insert(0, _y);
       if (_trail.Count > _trailLength) _trail.RemoveAt(_trailLength - 1);
     }
@@ -139,7 +164,7 @@ namespace charlie
       {
         ctx.SetSourceRGB(0.769, 0.282, 0.295);
         ctx.Arc(width / 2 + _shift - 10 * i, height / 2.0 + _trail[i], 
-          Math.Log(20.0, i + 2), 0, 2 * Math.PI);
+          Math.Log(20.0, i + 2), 0, 2 * PI);
         ctx.ClosePath();
         ctx.Fill();
       }
@@ -182,7 +207,7 @@ namespace charlie
       _branchProbability = branchProbability;
       _rand = new PcgRandom();
       
-      var expectedBranches = (int) Math.Truncate(maxLength * branchProbability);
+      var expectedBranches = (int) Truncate(maxLength * branchProbability);
       _branches = new List<Branch>(expectedBranches);
     }
 
@@ -191,9 +216,9 @@ namespace charlie
       if (++_length > _maxLength - 1) return;
       
       var angle = _rand.GetDouble(_angleStart, _angleEnd);
-      angle = angle * 2 * Math.PI - 0.25 * Math.PI;
-      var x = Math.Cos(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2];
-      var y = Math.Sin(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2 + 1];
+      angle = angle * 2 * PI - 0.25 * PI;
+      var x = Cos(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2];
+      var y = Sin(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2 + 1];
       _cells[_length * 2] = x;
       _cells[_length * 2 + 1] = y;
 
@@ -215,7 +240,7 @@ namespace charlie
           offsetX + _cells[i],
           offsetY + _cells[i + 1],
           _cellRadius,
-          0, 2 * Math.PI);
+          0, 2 * PI);
         ctx.ClosePath();
         ctx.Fill();
       }
@@ -375,7 +400,7 @@ namespace Y
     {
       // Render reference
       ctx.SetSourceColor(_mainColor);
-      ctx.Arc(_reference.X, _reference.Y, 5, 0, Math.PI * 2);
+      ctx.Arc(_reference.X, _reference.Y, 5, 0, PI * 2);
       ctx.Fill();
       
       if (debug)
@@ -390,7 +415,7 @@ namespace Y
         ctx.MoveTo(_arm3.X + 40 + 5, _center.Y);
         ctx.ShowText(_arm2Rot + "°");
         ctx.NewPath();
-        ctx.Arc(_center.X, _center.Y, 40, 0, -Math.PI * _arm2Rot / 180);
+        ctx.Arc(_center.X, _center.Y, 40, 0, -PI * _arm2Rot / 180);
         ctx.Stroke();
       }
       
@@ -400,9 +425,9 @@ namespace Y
       
       // Render center
       ctx.SetSourceColor(_mainColor);
-      ctx.Arc(_center.X, _center.Y, 9.75, 0, Math.PI * 2);
+      ctx.Arc(_center.X, _center.Y, 9.75, 0, PI * 2);
       ctx.Fill();
-      ctx.Arc(_center.X, _center.Y, 13.1, 0, Math.PI * 2);
+      ctx.Arc(_center.X, _center.Y, 13.1, 0, PI * 2);
       ctx.LineWidth = 4;
       ctx.Stroke();
     }
@@ -411,7 +436,7 @@ namespace Y
       double rot, Color color, bool inverse = false)
     {
       var radius = _wheelHeight / 15.0;
-      const double degrees = Math.PI / 180.0;
+      const double degrees = PI / 180.0;
       y -= _wheelHeight / 2;
       if (inverse) x -= _wheelWidth;
 
@@ -437,7 +462,7 @@ namespace Y
       // Render top
       ctx.SetSourceColor(color);
       ctx.LineCap = LineCap.Round;
-      ctx.Arc(x, y, 1.95 * 3, 0, Math.PI * 2);
+      ctx.Arc(x, y, 1.95 * 3, 0, PI * 2);
       ctx.FillPreserve();
       ctx.SetSourceColor(_mainColor);
       ctx.Stroke();
