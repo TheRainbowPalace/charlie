@@ -131,6 +131,23 @@ scrolledwindow undershoot, scrolledwindow overshoot {
     font-size: medium;
     padding-bottom: 5px;
 }
+
+/* Schedule area */
+
+#textBtn {
+    padding: 0;
+    background-color: transparent;
+}
+#textBtn label {
+    color: #000000;
+
+}
+#textBtn:hover label {
+    color: #C4484B;
+}
+
+/* About area */
+
 #about {
     font-size: small;
     background: #010101;

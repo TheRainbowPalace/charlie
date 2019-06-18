@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "simulation-template", "simulation-template.csproj", "{F1D2F8D5-0A5E-42DC-85D5-66C65333B48C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F1D2F8D5-0A5E-42DC-85D5-66C65333B48C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1D2F8D5-0A5E-42DC-85D5-66C65333B48C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1D2F8D5-0A5E-42DC-85D5-66C65333B48C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1D2F8D5-0A5E-42DC-85D5-66C65333B48C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
