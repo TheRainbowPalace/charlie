@@ -8,23 +8,26 @@ using static System.Math;
 
 namespace charlie
 {
-  internal struct Moon
+  internal struct AstronomicalObject
   {
+    public string Name;
     public double X;
     public double Y;
     public double Phase;
-    public double LunarDistance;
-    public double Radius;
+    /// <summary>
+    /// The distance to an astronomical object which is used to calculate
+    /// the position of this object e.g. the distance from earth to moon.
+    /// </summary>
+    public double Distance;
+    public double Diameter;
+    public double RotationSpeed;
   }
   
   public class DefaultSimulation : AbstractSimulation
   {
-    private int _minRadius;
-    private int _maxRadius;
-    private double _growRate;
-    private double _radius;
-    private bool _grow;
-    private Moon _moon;
+    private AstronomicalObject _sun;
+    private AstronomicalObject _moon;
+    private AstronomicalObject[] _planets;
     
     public override string GetTitle()
     {
@@ -39,21 +42,39 @@ namespace charlie
     public override string GetDescr()
     {
       return
+        "This is a hello world demo of the charlie simulation framework.\n" +
         "Charlie is multi purpose simulation app. It's goal is to provide a " +
         "clean and simple API as well as tools to debug, run and manage " +
-        "your simulations." +
-        "\nThis is the default demo simulation to give you a brief " +
-        "introduction.\n" +
-        "\nA simulation is made up of 9 functions:\n" +
+        "your simulations.\n" +
+        "The framework consists of a definition on how a simulation is " +
+        "structured as well as libraries and applications to build and manage" +
+        "simulations.\n" +
+        "\nA simulation is modeled as a tiny finite state machine made up of " +
+        "4 states and 3 transition functions:\n" +
+        "* Created\n" +
+        "* Initialized\n" +
+        "* Updated\n" +
+        "* Ended\n" +
+        "- Init(model)\n" +
+        "- Update(deltaTime)\n" +
+        "- End()\n" +
+        "This structure can be found in a variety of other simulation " +
+        "software and while it gives a clear and simple frame on how to build" +
+        "a simulation, it's in no way restrictive \n\n" +
+        "After the simulation code has been loaded there are multiple " +
+        "functions available to get information about the simulation.\n" +
+        "Note here, that the first four are static and can be called before " +
+        "the simulation is initialized while the later are dynamic and " +
+        "depend on the current state of the simulation.\n" +
         "- GetTitle() : string\n" +
         "- GetDescr() : string\n" +
         "- GetMeta() : string\n" +
         "- GetConfig() : string\n" +
-        "- Init(model) : void\n" +
-        "- Update(deltaTime) : void\n" +
-        "- Render(width, height) : byte[]\n" +
-        "- Log() : string\n" +
-        "- End() : void\n";
+        "- GetTextData() : string\n" +
+        "- GetImageData(width, height) : byte[]\n" +
+        "- GetAudioData() : byte[]\n" +
+        "- GetByteData() : byte[]\n" +
+        "- GetState() : byte[]\n";
     }
 
     public override string GetConfig()
@@ -68,50 +89,160 @@ namespace charlie
 
     public override void Init(Dictionary<string, string> model)
     {
-      _minRadius = GetInt(model, "MinRadius", 0);
-      _maxRadius = GetInt(model, "MaxRadius", 100);
-      _growRate = GetDouble(model, "GrowRate", 1);
-      _radius = _maxRadius;
-      _grow = false;
-      _moon = new Moon {
-        X = 0, Y = 200, Phase = 0, 
-        LunarDistance = 120, Radius = 20
+      _sun = new AstronomicalObject
+      {
+        Name = "Sun",
+        Diameter = 1392684
       };
+      _moon = new AstronomicalObject 
+      {
+        Name = "Moon",
+        Distance = 20,
+        Diameter = 4,
+        RotationSpeed = 2.5
+      };
+      
+      var mercury = new AstronomicalObject
+      {
+        Name = "Mercury",
+        Distance = 57909000,
+        Diameter = 4879.4,
+        RotationSpeed = 4.5
+      };
+      var venus = new AstronomicalObject
+      {
+        Name = "Venus",
+        Distance = 109160000,
+        Diameter = 12103.6,
+        RotationSpeed = 1.9
+      };
+      var earth = new AstronomicalObject
+      {
+        Name = "Earth",
+        Distance = 149600000,
+        Diameter = 12756.3,
+        RotationSpeed = 1
+      };
+      var mars = new AstronomicalObject
+      {
+        Name = "Mars",
+        Distance = 227990000,
+        Diameter = 6792.4,
+        RotationSpeed = 1.0 / 2
+      };
+      var jupiter = new AstronomicalObject
+      {
+        Name = "Jupiter",
+        Distance = 778360000,
+        Diameter = 142984,
+        RotationSpeed = 1.0 / 11
+      };
+      var saturn = new AstronomicalObject
+      {
+        Name = "Saturn",
+        Distance = 1433500000,
+        Diameter = 120536,
+        RotationSpeed = 1.0 / 13
+      };
+      var uranus = new AstronomicalObject
+      {
+        Name = "Uranus",
+        Distance = 2872400000,
+        Diameter = 51118,
+        RotationSpeed = 1.0 / 15
+      };
+      var neptune = new AstronomicalObject
+      {
+        Name = "Neptune",
+        Distance = 4498400000,
+        Diameter = 49528,
+        RotationSpeed = 1.0 / 18
+      };
+      _planets = new []
+      {
+        mercury, venus, earth, mars, jupiter, saturn, uranus, neptune
+      };
+      
+      for (var i = 0; i < _planets.Length; i++)
+      {
+        var planet = _planets[i];
+        planet.Distance /= 1000000;
+        planet.X = planet.Distance;
+        planet.Diameter /= 1000;
+        _planets[i] = planet;
+      }
+      
+      _sun.Diameter /= 40000;
+      _moon.X = earth.X + _moon.Distance;
     }
 
+    private static AstronomicalObject UpdateObject(
+      AstronomicalObject target, 
+      AstronomicalObject reference)
+    {
+      target.Phase += target.RotationSpeed;
+      if (target.Phase >= 360) target.Phase = 0;
+      
+      target.X = reference.X + target.Distance * Cos(PI * target.Phase / 180);
+      target.Y = reference.Y + target.Distance * Sin(PI * target.Phase / 180);
+      return target;
+    }
+    
     public override void Update(long deltaTime)
     {
-      if (_radius > _maxRadius || _radius < _minRadius) _grow = !_grow;
-      if (_grow) _radius += _growRate;
-      else _radius -= _growRate;
-
-      _moon.Phase++;
-      if (_moon.Phase > 360) _moon.Phase = 0;
-      _moon.X = _moon.LunarDistance / Cos(PI * _moon.Phase / 180);
-      _moon.Y = _moon.LunarDistance / Sin(PI * _moon.Phase / 180);
+      for (var i = 0; i < _planets.Length; i++)
+      {
+        _planets[i] = UpdateObject(_planets[i], _sun);
+      }
+      
+      _moon = UpdateObject(_moon, _planets[2]);
     }
 
-    public override void Render(Context ctx, int width, int height)
+    private static void RenderObject(Context ctx, AstronomicalObject obj, 
+      double xOffset, double yOffset)
     {
       ctx.SetSourceRGB(0.769, 0.282, 0.295);
-      ctx.Arc((double) width / 2, (double) height / 2, 
-        _radius, 0, 2 * PI);
-      ctx.ClosePath();
-      ctx.Fill();
-      
-      ctx.Arc((double) width / 2 + _moon.X, (double) height / 2 + _moon.Y, 
-        _moon.Radius, 0, 2 * PI);
+      ctx.Arc(xOffset + obj.X, yOffset + obj.Y, obj.Diameter, 0, 2 * PI);
       ctx.ClosePath();
       ctx.Fill();
     }
+    
+    public override void Render(Context ctx, int width, int height)
+    {
+      var xOffset = width / 2;
+      var yOffset = height / 2;
+      const double scale = 40.0 / 1392684;
 
+//      ctx.Scale(scale, scale);
+//      ctx.Translate(width * .5, height * .5);
+      
+      RenderObject(ctx, _sun, xOffset, yOffset);
+      RenderObject(ctx, _moon, xOffset, yOffset);
+      
+      foreach (var planet in _planets)
+      {
+        RenderObject(ctx, planet, xOffset, yOffset);
+      }
+    }
+
+    private static string AstrObjToString(AstronomicalObject obj)
+    {
+      return obj.Name + ", " + obj.X + ", " + obj.Y;
+    }
+    
     public override string Log()
     {
-      return "Radius: " + _radius + "\n";
+      var result = AstrObjToString(_sun) + "\n" + AstrObjToString(_moon) + "\n";
+      foreach (var planet in _planets)
+      {
+        result += AstrObjToString(planet) + "\n";
+      }
+
+      return result;
     }
   }
 
-  public class SineExample : AbstractSimulation
+  public class WaveExample : AbstractSimulation
   {
     private double _time;
     private double _amplitude;
@@ -168,140 +299,6 @@ namespace charlie
         ctx.ClosePath();
         ctx.Fill();
       }
-    }
-  }
-  
-  internal class Branch
-  {
-    private int _maxLength;
-    private double[] _cells;
-    private double _cellRadius;
-    private double _angleStart;
-    private double _angleEnd;
-    private int _length;
-    private double _branchProbability;
-    private List<Branch> _branches;
-    private PcgRandom _rand;
-    
-    /// <summary>
-    /// Initialize the branch.
-    /// </summary>
-    /// <param name="x"></param>
-    /// <param name="y"></param>
-    /// <param name="angleStart"></param>
-    /// <param name="angleEnd"></param>
-    /// <param name="cellRadius"></param>
-    /// <param name="maxLength"></param>
-    /// <param name="branchProbability"></param>
-    public Branch(double x, double y, double angleStart, double angleEnd, 
-      double cellRadius, int maxLength, double branchProbability)
-    {
-      _angleStart = angleStart;
-      _angleEnd = angleEnd;
-      _cellRadius = cellRadius;
-      _maxLength = maxLength;
-      _cells = new double[_maxLength * 2];
-      _cells[0] = x;
-      _cells[1] = y;
-      _length = 0;
-      _branchProbability = branchProbability;
-      _rand = new PcgRandom();
-      
-      var expectedBranches = (int) Truncate(maxLength * branchProbability);
-      _branches = new List<Branch>(expectedBranches);
-    }
-
-    public void Update()
-    {
-      if (++_length > _maxLength - 1) return;
-      
-      var angle = _rand.GetDouble(_angleStart, _angleEnd);
-      angle = angle * 2 * PI - 0.25 * PI;
-      var x = Cos(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2];
-      var y = Sin(angle) * _cellRadius * 2 + _cells[(_length - 1) * 2 + 1];
-      _cells[_length * 2] = x;
-      _cells[_length * 2 + 1] = y;
-
-      if (_rand.GetDouble() < _branchProbability)
-      {
-        _branches.Add(new Branch(x, y, _angleStart, _angleEnd, _cellRadius, 
-          _maxLength, 0));
-      }
-      
-      foreach (var branch in _branches) branch.Update();
-    }
-    
-    public void Render(Context ctx, int offsetX, int offsetY)
-    {
-      for (var i = 0; i < _cells.Length; i += 2)
-      {
-        ctx.SetSourceRGB(0.556,  0.768, 0.466);
-        ctx.Arc(
-          offsetX + _cells[i],
-          offsetY + _cells[i + 1],
-          _cellRadius,
-          0, 2 * PI);
-        ctx.ClosePath();
-        ctx.Fill();
-      }
-
-      foreach (var branch in _branches) branch.Render(ctx, offsetX, offsetY);
-    }
-  }
-  
-  public class GrowthExample : AbstractSimulation
-  {
-    private Branch[] _roots;
-    
-    public override string GetTitle()
-    {
-      return "Growth";
-    }
-
-    public override string GetDescr()
-    {
-      return "Grow a weird artificial plant";
-    }
-
-    public override string GetConfig()
-    {
-      return "# The maximal angle between two cells\n" +
-             "Variety = 0.7\n" +
-             "# The size of a single cell\n" +
-             "CellRadius = 1\n" +
-             "# The maximal size of the plant\n" +
-             "MaxLength = 200\n" +
-             "# The probability for a branch to sprout\n" +
-             "BranchProbability = 0.01\n" +
-             "RootCount = 10";
-    }
-
-    public override void Init(Dictionary<string, string> model)
-    {
-      var cellRadius = GetDouble(model, "CellRadius", 1); 
-      var maxLength = GetInt(model, "MaxLength", 200); 
-      var branchProbability = GetDouble(model, "BranchProbability", 0.01);
-      var variety = GetDouble(model, "Variety", 0.7);
-      var angleStart = - variety / 2;
-      var angleEnd = variety / 2;
-
-      var rootCount = GetInt(model, "RootCount", 10);
-      _roots = new Branch[rootCount];
-      for (var i = 0; i < rootCount; i++)
-      {
-        _roots[i] = new Branch(0, 0, angleStart, angleEnd, cellRadius,
-          maxLength, branchProbability);
-      }
-    }
-
-    public override void Update(long deltaTime)
-    {
-      foreach (var branch in _roots) branch.Update();
-    }
-
-    public override void Render(Context ctx, int width, int height)
-    {
-      foreach (var branch in _roots) branch.Render(ctx, 200, 350);
     }
   }
 }
