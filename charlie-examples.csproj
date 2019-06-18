@@ -29,12 +29,21 @@
       <HintPath>packages\CairoSharp.3.22.24.36\lib\netstandard2.0\CairoSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Mogre, Version=1.7.4.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\Mogre1.7.4.1.0.6\lib\Mogre.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MogreNewt, Version=2.35.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\Mogre1.7.4.1.0.6\lib\MogreNewt.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\Examples.cs" />
+    <Compile Include="src\Simulation3DTemplate.cs" />
     <Compile Include="src\ISimulation.cs" />
     <Compile Include="src\Geometry.cs" />
     <Compile Include="src\clipper.cs" />
