@@ -340,6 +340,36 @@ namespace charlie
     }
   }
 
+  internal class Observable<T>
+  {
+    private T _value;
+    /// <summary>
+    /// An event which is called after the value the observable has been
+    /// changed.
+    /// </summary>
+    public event EventHandler OnSet;
+
+    public Observable(T value)
+    {
+      _value = value;
+    }
+
+    public Observable()
+    {
+    }
+
+    public T Get()
+    {
+      return _value;
+    }
+
+    public void Set(T value)
+    {
+      _value = value;
+      OnSet?.Invoke(this, EventArgs.Empty);
+    }
+  }
+  
   internal class CharlieModel
   {
     public int WindowX;
@@ -358,9 +388,12 @@ namespace charlie
     public int RenderWidth;
     
     public Simulation Sim;
-    public SimRun ActiveRun;
-    public List<SimRun> ScheduledRuns;
 
+//    public SimRun ActiveRun;
+    public readonly Observable<SimRun> ActiveRun;
+    
+    public readonly List<SimRun> ScheduledRuns;
+    
     public CharlieModel()
     {
       WindowX = 20;
@@ -374,6 +407,7 @@ namespace charlie
       RenderHeight = 800;
       RenderWidth = 800;
       ScheduledRuns = new List<SimRun>();
+      ActiveRun = new Observable<SimRun>();
     }
 
     public override string ToString()
@@ -420,7 +454,6 @@ namespace charlie
     public const string Copyright = "Copyright © 2019 Jakob Rieke";
     private CharlieModel _model;
 
-    private Widget _root;
     private DrawingArea _canvas;
     private LogOutput _logOutput;
     private Label _iterationLbl;
@@ -456,8 +489,8 @@ namespace charlie
 
     private void Quit()
     {
-      _model.ActiveRun.Stop();
-      _model.ActiveRun.End();
+      _model.ActiveRun.Get().Stop();
+      _model.ActiveRun.Get().End();
       Application.Quit();
     }
     
@@ -481,9 +514,8 @@ namespace charlie
     }
     
     /// <summary>
-    /// Load a simulation from a given .dll file and a classname and create
-    /// a simulation run (_activeRun).
-    /// Call AfterLoad() and initialize _activeRun. 
+    /// Load a simulation from a given .dll file and a classname, create
+    /// a new simulation run, initialize it and update the model. 
     /// </summary>
     /// <param name="path"></param>
     /// <param name="className"></param>
@@ -518,21 +550,24 @@ namespace charlie
 
         // -- Create run from simulation
         
-        _model.ActiveRun = new SimRun(_model.Sim.Spawn())
+        var run = new SimRun(_model.Sim.Spawn())
         {
           RenderHeight = _model.RenderHeight, 
           RenderWidth = _model.RenderWidth,
           IsWriteLogToFile = _model.WriteLogToFile,
           SimDelay = _model.SimDelay
         };
-        _model.ActiveRun.OnUpdate += (sender, args) =>
+        run.OnUpdate += (sender, args) =>
         {
           Application.Invoke((s, a) => AfterUpdate());
         };
-        _model.ActiveRun.OnLog += (sender, args) =>
+        run.OnLog += (sender, args) =>
         {
           Application.Invoke((s, a) => _logOutput.Log(args.Message));
         };
+        run.Init(run.Instance.GetConfig());
+        
+        _model.ActiveRun.Set(run);
       }
       catch (ArgumentException e)
       {
@@ -548,23 +583,14 @@ namespace charlie
         "resources", resource);
     }
 
-    /// <summary>
-    /// Called after a simulation was loaded but not initialized.
-    /// </summary>
-    private void AfterLoad()
-    {
-      ((Label) _title.Children[0]).Text = _model.ActiveRun.Instance.GetTitle();
-      ((Label) _title.Children[1]).Text = _model.ActiveRun.Instance.GetDescr();
-      _modelBuffer.Text = _model.ActiveRun.Instance.GetConfig();
-    }
-    
     private void AfterUpdate()
     {
       _canvas.QueueDraw();
       _iterationLbl.Text = 
-        "i = " + _model.ActiveRun.Iteration + 
-        ", e = " + _model.ActiveRun.ElapsedTime / 1000 + "s" +
-        ", a = " + Math.Round(_model.ActiveRun.AverageIterationTime, 2) + "ms";
+        "i = " + _model.ActiveRun.Get().Iteration + 
+        ", e = " + _model.ActiveRun.Get().ElapsedTime / 1000 + "s" +
+        ", a = " + Math.Round(_model.ActiveRun.Get().AverageIterationTime, 2) + 
+        "ms";
     }
     
     private Widget CreateRoot()
@@ -582,6 +608,13 @@ namespace charlie
           Xalign = 0
         }
       };
+      _model.ActiveRun.OnSet += (sender, args) =>
+      {
+        ((Label) _title.Children[0]).Text = 
+          _model.ActiveRun.Get().Instance.GetTitle();
+        ((Label) _title.Children[1]).Text = 
+          _model.ActiveRun.Get().Instance.GetDescr();
+      };
 
       _logOutput = new LogOutput();
       
@@ -591,6 +624,7 @@ namespace charlie
       content.PackStart(CreateModelArea(), false, false, 0);
       content.PackStart(CreateCanvasArea(), false, false, 0);
       content.PackStart(CreateControlArea(), false, false, 0);
+      content.PackStart(CreateStateDebugArea(), false, false, 0);
       content.PackStart(CreateConfigArea(), false, false, 0);  
       content.PackStart(CreateScheduleArea(), false, false, 0);  
 //      content.PackStart(CreateAboutArea(), false, false, 0);
@@ -629,15 +663,13 @@ namespace charlie
       var loadBtn = new Button("Load");
       loadBtn.Clicked += (sender, args) =>
       {
-        if (_model.ActiveRun != null && _model.ActiveRun.Running)
+        if (_model.ActiveRun.Get() != null && _model.ActiveRun.Get().Running)
         {
           Logger.Warn("Please stop the simulation first");
           return;
         }
         
         Load(pathEntry.Text);
-        AfterLoad();
-        _model.ActiveRun.Init(_modelBuffer.Text);
       };
       
       var loadControl = new HBox(false, 15);
@@ -726,7 +758,7 @@ namespace charlie
       {
         if (_model.ActiveRun == null) return;
         
-        _model.ActiveRun.Stop();
+        _model.ActiveRun.Get().Stop();
         startBtn.Label = "Start";
         startBtn.Clicked -= Stop;
         startBtn.Clicked += Start;
@@ -736,7 +768,7 @@ namespace charlie
       {
         if (_model.ActiveRun == null) return;
         
-        _model.ActiveRun.Update();
+        _model.ActiveRun.Get().Update();
         startBtn.Label = "Stop ";
         startBtn.Clicked -= Start;
         startBtn.Clicked += Stop;
@@ -746,22 +778,22 @@ namespace charlie
       initBtn.Clicked += (sender, args) =>
       {
         if (_model.ActiveRun == null) return;
-        if (_model.ActiveRun.Started) Stop(this, EventArgs.Empty);
+        if (_model.ActiveRun.Get().Started) Stop(this, EventArgs.Empty);
         
         var timer = new Timer(20);
         timer.Elapsed += (o, eventArgs) =>
         {
-          if (_model.ActiveRun.Running)
+          if (_model.ActiveRun.Get().Running)
           {
             Logger.Say("Waiting for update thread to finish.");
             return;
           }
 
           timer.Enabled = false;
-          _model.ActiveRun.End();
-          _model.ActiveRun.IsWriteLogToFile = _model.WriteLogToFile;
-          _model.ActiveRun.SimDelay = _model.SimDelay;
-          _model.ActiveRun.Init(_modelBuffer.Text);
+          _model.ActiveRun.Get().End();
+          _model.ActiveRun.Get().IsWriteLogToFile = _model.WriteLogToFile;
+          _model.ActiveRun.Get().SimDelay = _model.SimDelay;
+          _model.ActiveRun.Get().Init(_modelBuffer.Text);
         };
         timer.Enabled = true;
       };
@@ -778,8 +810,9 @@ namespace charlie
       stepsBtn.Clicked += (sender, args) =>
       {
         if (_model.ActiveRun == null) return;
-        if (_model.ActiveRun.Running) return;
-        if (int.TryParse(stepsEntry.Text, out var x)) _model.ActiveRun.Update(x);
+        if (_model.ActiveRun.Get().Running) return;
+        if (int.TryParse(stepsEntry.Text, out var x)) 
+          _model.ActiveRun.Get().Update(x);
         else Logger.Warn("Please enter a number >= 0.");
       };
       var stepsBox = new HBox(false, 0) {stepsEntry, stepsBtn};
@@ -794,7 +827,7 @@ namespace charlie
       {
         if (_model.ActiveRun == null) return;
         
-        _model.ActiveRun.SaveImage();
+        _model.ActiveRun.Get().SaveImage();
       };
 
       var result = new HBox(false, 10);
@@ -820,16 +853,17 @@ namespace charlie
         args.Cr.LineWidth = 3;
         args.Cr.SetSourceRGB(0.2, 0.2, 0.2);
         args.Cr.FillPreserve();
-        args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
+//        args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
+        args.Cr.SetSourceRGB(0, 0, 0);
         args.Cr.Stroke();
 
-        if (_model.ActiveRun?.ImageData == null) return;
+        if (_model.ActiveRun.Get()?.ImageData == null) return;
 
         var surface = new ImageSurface(
-          _model.ActiveRun.ImageData, Format.ARGB32,
-          _model.ActiveRun.RenderWidth, 
-          _model.ActiveRun.RenderHeight,
-          4 * _model.ActiveRun.RenderWidth);
+          _model.ActiveRun.Get().ImageData, Format.ARGB32,
+          _model.ActiveRun.Get().RenderWidth, 
+          _model.ActiveRun.Get().RenderHeight,
+          4 * _model.ActiveRun.Get().RenderWidth);
         args.Cr.Scale(.5, .5);
         args.Cr.SetSourceSurface(surface, 0, 0);
         args.Cr.Paint();
@@ -854,6 +888,11 @@ namespace charlie
       _modelBuffer = new TextBuffer(new TextTagTable())
       {
         Text = "# No simulation loaded\n"
+      };
+
+      _model.ActiveRun.OnSet += (sender, args) =>
+      {
+        _modelBuffer.Text = _model.ActiveRun.Get().Instance.GetConfig();
       };
 
       var title = new Label("Model")
