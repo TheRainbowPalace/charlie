@@ -25,16 +25,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AtkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\AtkSharp.3.22.24.36\lib\netstandard2.0\AtkSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="CairoSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
       <HintPath>packages\CairoSharp.3.22.24.36\lib\netstandard2.0\CairoSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Mogre, Version=1.7.4.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\Mogre1.7.4.1.0.6\lib\Mogre.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="MogreNewt, Version=2.35.0.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\Mogre1.7.4.1.0.6\lib\MogreNewt.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -43,7 +39,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\Examples.cs" />
-    <Compile Include="src\Simulation3DTemplate.cs" />
     <Compile Include="src\ISimulation.cs" />
     <Compile Include="src\Geometry.cs" />
     <Compile Include="src\clipper.cs" />
@@ -53,11 +48,4 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="packages\SharpDX.2.6.3\build\SharpDX.targets" Condition="Exists('packages\SharpDX.2.6.3\build\SharpDX.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105.The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('packages\SharpDX.2.6.3\build\SharpDX.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\SharpDX.2.6.3\build\SharpDX.targets'))" />
-  </Target>
 </Project>
