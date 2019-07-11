@@ -6,5 +6,4 @@
 
 msbuild charlie-examples.csproj -nologo -verbosity:quiet
 msbuild charlie.csproj -nologo -verbosity:quiet
-cp -r resources bin/RunCharlie
 

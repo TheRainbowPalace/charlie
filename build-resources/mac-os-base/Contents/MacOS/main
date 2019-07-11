@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+EXE="$DIR/../Resources/charlie.exe"
+eval "/Library/Frameworks/Mono.framework/Versions/Current/Commands/mono $EXE"
