@@ -489,8 +489,11 @@ namespace charlie
 
     private void Quit()
     {
-      _model.ActiveRun.Get().Stop();
-      _model.ActiveRun.Get().End();
+      if (_model.ActiveRun.Get() != null)
+      {
+        _model.ActiveRun.Get().Stop();
+        _model.ActiveRun.Get().End();
+      }
       Application.Quit();
     }
     
@@ -853,7 +856,6 @@ namespace charlie
         args.Cr.LineWidth = 3;
         args.Cr.SetSourceRGB(0.2, 0.2, 0.2);
         args.Cr.FillPreserve();
-//        args.Cr.SetSourceRGB(0.721, 0.722, 0.721);
         args.Cr.SetSourceRGB(0, 0, 0);
         args.Cr.Stroke();
 
@@ -1000,6 +1002,42 @@ namespace charlie
       
       result.PackStart(title, false, false, 0);
       result.PackStart(scheduleControls, false, false, 5);
+      return result;
+    }
+
+    private Widget CreateStateDebugArea()
+    {
+      var buffer = new TextBuffer(new TextTagTable())
+      {
+        Text = "Simulation State 🤔"
+      };
+
+      _model.ActiveRun.OnSet += (sender, args) =>
+      {
+//        _model.ActiveRun.Get().OnInit += (s2, args2) =>
+//        {
+//          buffer.Text = _model.ActiveRun.Get().Instance.GetState();
+//        };
+//        _model.ActiveRun.Get().OnUpdate += (s2, args2) =>
+//        {
+//          buffer.Text = _model.ActiveRun.Get().Instance.GetState();
+//        };
+      };
+      
+      var title = new Label("Model")
+      {
+        Xalign = 0, Valign = Align.Start
+      };
+      var textView = new TextView(buffer)
+      {
+        WidthRequest = 400,
+        Indent = 3,
+        WrapMode = WrapMode.WordChar
+      };
+      var result = new VBox(false, 7);
+      result.PackStart(title, false, false, 0);
+      result.PackStart(textView, true, true, 0);
+      
       return result;
     }
     

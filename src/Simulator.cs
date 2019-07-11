@@ -67,6 +67,140 @@ namespace charlie
       _log = _type.GetMethod("Log");
     }
 
+    [Serializable]
+    public struct DataTree
+    {
+      public string TypeName;
+      public string Value;
+      public string Description;
+      public List<DataTree> Children;
+
+      public override string ToString()
+      {
+        var result = $"{Value} : {TypeName}";
+        if (Children == null) return result;
+        
+        foreach (var child in Children) result += "\n  - " + child;
+        return result;
+      }
+    }
+
+    private const BindingFlags Flags =
+      BindingFlags.NonPublic | BindingFlags.Instance |
+      BindingFlags.Public | BindingFlags.Static | BindingFlags.GetProperty |
+      BindingFlags.DeclaredOnly | BindingFlags.ExactBinding |
+      BindingFlags.CreateInstance | BindingFlags.SetProperty |
+      BindingFlags.SetField | BindingFlags.GetField;
+    
+    private readonly HashSet<object> _foundValues = new HashSet<object>();
+
+    public string ObjectToString(object value)
+    {
+      return value.GetType().Name + ":\n" + 
+             ObjectToString(value.GetType(), 0, value);
+    }
+    
+    private string ObjectToString(Type type, int depth, object value)
+    {
+      if (value == null || _foundValues.Contains(value)) return "";
+      
+      _foundValues.Add(value);
+      var result = "";
+
+      var fields = type.GetFields(Flags);
+//      var properties = type.GetProperties(Flags);
+      
+      foreach (var field in fields)
+      {
+        for (var i = 0; i < depth; i++) result += "  ";
+        
+        result += "- " + field.FieldType.Name + " : ";
+        result += field.Name;
+
+        var fieldType = field.FieldType;
+        var fieldValue = field.GetValue(value);
+
+        result += fieldValue != null ? $" = {fieldValue}" : " = null";
+
+        if (fieldType.IsPrimitive)
+        {
+          result += " --> Primitive type\n";
+        }
+        else if (fieldType.IsEnum)
+        {
+          result += " --> Enumeration type\n";
+        }
+        else if (fieldType.IsValueType)
+        {
+          result += " --> Struct type\n";
+          result += ObjectToString(fieldType, depth + 1, fieldValue);
+        }
+        else if (fieldType.IsGenericType)
+        {
+          result += " --> Generic type\n";
+          result += ObjectToString(fieldType, depth + 1, fieldValue);
+//          foreach (var argument in fieldType.GetGenericArguments())
+//          {
+//            PrintType(argument, depth + 1);
+//          }
+        }
+        else if (fieldType.IsArray)
+        {
+          result += " --> Array type\n";
+          
+          if (fieldValue == null) continue;
+
+          var array = (Array) fieldValue;
+          var arrayType = array.GetType().GetElementType();
+          
+          var i = 0;
+          foreach (var elem in array)
+          {
+            for (var j = 0; j < depth + 1; j++) result += "  ";
+
+            // Use elem.GetType() in the following since array might not contain
+            // elements of just one type e.g. an object[] might contain numbers
+            // and strings
+            
+            if (arrayType.IsPrimitive)
+            {
+              result += $"{i}.";
+              result += ObjectToString(elem.GetType(), 0, elem);
+            }
+            else
+            {
+              if (elem == null)
+              {
+                result += $"{i}. {arrayType.Name}: null\n";
+              }
+              else
+              {
+                result += $"{i}. {elem.GetType().Name}:\n";
+                result += ObjectToString(elem.GetType(), depth + 2, elem);
+              }
+            }
+            i++;
+          }
+        }
+        else if (fieldType.IsClass)
+        {
+          result += " --> Class type\n";
+          ObjectToString(fieldType, depth + 1, fieldValue);
+        }
+        else result += "\n";
+      }
+      
+//      foreach (var property in properties)
+//      {
+//        for (var i = 0; i < depth; i++) Console.Write("  ");
+//        
+//        Console.WriteLine($"* {property.PropertyType.Name} : {property.Name}");
+//      }
+      _foundValues.Remove(value);
+      
+      return result;
+    }
+
     /// <summary>
     /// Spawns a new simulation instance and returns an identifier (i).
     /// The instance is stored internally and can be used by calling
@@ -123,6 +257,11 @@ namespace charlie
     public string GetMeta(int index)
     {
       return (string) _getMeta.Invoke(_instances[index], new object[0]);
+    }
+
+    public string GetState(int index)
+    {
+      return ObjectToString(_instances[index]);
     }
 
     public void Init(int index, Dictionary<string, string> config)
@@ -288,9 +427,16 @@ namespace charlie
       return Proxy.GetConfig(Id);
     }
 
+    public string GetState()
+    {
+      return Proxy.GetState(Id);
+    }
+
     public void Init(Dictionary<string, string> model)
     {
       Proxy.Init(Id, model);
+//      Console.WriteLine("TypeTree:");
+//      Console.WriteLine(Proxy.GetDataTree(Id));
     }
 
     public void End()
@@ -332,7 +478,7 @@ namespace charlie
       MaxFileLength = maxFileLength;
       MaxBufferLength = maxBufferLength;
       _buffer = "";
-
+      
       // -- Create output directory
 
       FileDir = Path.Combine(
