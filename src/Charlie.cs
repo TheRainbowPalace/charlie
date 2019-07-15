@@ -389,7 +389,7 @@ namespace charlie
       ".charlie");
     private static readonly string PreferenceFile = Path.Combine(
       PrefenceDir, "config.txt");
-    public readonly string Version = "0.2.1";
+    public readonly string Version = "0.2.2";
     public readonly string Author = "Jakob Rieke";
     public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
     public int WindowX;
@@ -715,8 +715,7 @@ namespace charlie
     }
 
     /// <summary>
-    /// Removes an element from an array. If the array is empty or does not
-    /// contain the element the array itself is returned. If the the provided
+    /// Removes an element from an and returns a new copy. If the the provided
     /// array is null, null is returned.
     /// </summary>
     /// <param name="data"></param>
@@ -725,21 +724,7 @@ namespace charlie
     /// <returns></returns>
     public static T[] Remove<T>(T[] data, T value)
     {
-      if (data == null) return null;
-      if (data.Length == 0) return data;
-      
-      var result = new T[data.Length - 1];
-      var index = -1;
-      for (var i = 0; i < data.Length; i++)
-      {
-        if (data[i].Equals(value)) index = i;
-      }
-
-      if (index == -1) return data;
-      
-      Array.Copy(data, 0, result, 0, index);
-      Array.Copy(data, index + 1, result, index, result.Length);
-      return result;
+      return data?.Where(val => !val.Equals(value)).ToArray();
     }
 
     private Box CreateLoadArea()
