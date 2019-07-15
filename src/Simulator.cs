@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Cairo;
 using MathNet.Numerics.Random;
 using DateTime = System.DateTime;
@@ -305,6 +306,10 @@ namespace charlie
     public Simulation(string complexPath)
     {
       var parsed = ParseComplexPath(complexPath);
+      
+      if (parsed == null) 
+        throw new ArgumentException("Invalid complex path");
+      
       Path = parsed[0];
       ClassName = parsed[1];
       ComplexPath = parsed[0] + parsed[1];
@@ -331,8 +336,7 @@ namespace charlie
     {
       var text = complexPath.Replace(" ", "");
       var index = text.LastIndexOf(':');
-      if (index < 0) throw new ArgumentException(
-        "Complex path should be of form /path/to/dll-file:classname");
+      if (index < 0) return null;
 
       return new []{
         text.Substring(0, index),
@@ -682,7 +686,33 @@ namespace charlie
 
       return result;
     }
-    
+
+    public static string SimplifyException(string exc)
+    {
+      var length = exc.IndexOf("at (wrapper managed-to-native)", 
+        StringComparison.Ordinal);
+      var lines = exc.Substring(0, length).Split('\n');
+      var result = "";
+      
+      for (var i = 0; i < lines.Length; i++)
+      {
+        var line = Regex.Split(
+          lines[i]
+            .Replace("at ", "- ")
+            .Replace("System.Reflection.TargetInvocationException: " +
+                   "Exception has been thrown by the target of an invocat" +
+                   "ion. ---> ", "").TrimEnd(), 
+          "\\[0x[\\d,a,b,c,d,e,f]{5}\\]")[0];
+        
+        if (line == "") continue;
+        
+        result += line;
+        if (i < lines.Length - 1) result += "\n";
+      }
+      
+      return result;
+    }
+
     /// <summary>
     /// Initialize the simulation run.
     /// </summary>
@@ -726,7 +756,9 @@ namespace charlie
       }
       catch (Exception e)
       {
-        Log("<error>" + e + "</error>\n");
+        var exc = SimplifyException(e.ToString());
+        Log("<error>\n" + exc + "</error>\n");
+        Console.WriteLine(exc);
       }
     }
 

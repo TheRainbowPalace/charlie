@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cairo;
 using Geometry;
-using Optimization;
 using charlie;
 using static System.Math;
 
@@ -59,8 +58,8 @@ namespace charlie
         "- Update(deltaTime)\n" +
         "- End()\n" +
         "This structure can be found in a variety of other simulation " +
-        "software and while it gives a clear and simple frame on how to build" +
-        "a simulation, it's in no way restrictive \n\n" +
+        "software and while it gives a clear and simple frame on how to " +
+        "build a simulation, it's in no way restrictive \n\n" +
         "After the simulation code has been loaded there are multiple " +
         "functions available to get information about the simulation.\n" +
         "Note here, that the first four are static and can be called before " +
@@ -74,14 +73,14 @@ namespace charlie
         "- GetImageData(width, height) : byte[]\n" +
         "- GetAudioData() : byte[]\n" +
         "- GetByteData() : byte[]\n" +
-        "- GetState() : byte[]\n";
+        "- GetState() : byte[]";
     }
 
     public override string GetConfig()
     {
-      return "# Here you can modify the simulation model\n" +
-             "# The new model is loaded as soon as the simulation\n" +
-             "# is re-initialized\n\n" +
+      return "# Here you can enter a start configuration for\n" +
+             "# your simulation. It is loaded as soon as\n" +
+             "the simulation is re-initialized\n\n" +
              "MinRadius = 0\n" +
              "MaxRadius = 100\n" +
              "GrowRate = 1";
@@ -233,12 +232,13 @@ namespace charlie
     public override string Log()
     {
       var result = AstrObjToString(_sun) + "\n" + AstrObjToString(_moon) + "\n";
+      
       foreach (var planet in _planets)
       {
         result += AstrObjToString(planet) + "\n";
       }
-
-      return result;
+      
+      return result.Substring(0, result.Length -  2);
     }
   }
 

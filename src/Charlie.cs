@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Timers;
 using Cairo;
 using Gdk;
 using Gtk;
+using Json.Net;
 using Application = Gtk.Application;
+using Key = Gdk.Key;
 using Path = System.IO.Path;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
@@ -40,7 +44,7 @@ namespace charlie
 		  if (args.Length == 0)
 		  {
 		    Application.Init();
-		    var app = new CharlieGraphicalApp();
+		    var app = new CharlieGtkApp();
 		    Application.Run();
 		  }
 		  else if (args[0] == "--help" || args[0] == "-h")
@@ -58,7 +62,7 @@ namespace charlie
 		  {
 		    var sim = new Simulation(args[1]);
 		    var instance = sim.Spawn();
-		    if (args[2] == "model") Logger.Say(instance.GetConfig());
+		    if (args[2] == "config") Logger.Say(instance.GetConfig());
 		    else if (args[2] == "descr") Logger.Say(instance.GetDescr());
 		    else if (args[2] == "meta") Logger.Say(instance.GetMeta());
 		  }
@@ -98,24 +102,25 @@ namespace charlie
           RenderWidth = 800
         };
 
-        var model = run.Instance.GetConfig();
+        var config = run.Instance.GetConfig();
         
-        // -- Parse simulation model
+        // -- Parse simulation start configuration
         
         if (args.Length > 4)
         {
-          var modelFile = args[4];
-          if (!Path.IsPathRooted(modelFile))
+          var configFile = args[4];
+          if (!Path.IsPathRooted(configFile))
           {
-            modelFile = Path.Combine(Environment.CurrentDirectory, modelFile);
+            configFile = Path.Combine(Environment.CurrentDirectory, configFile);
           }
-          if (!File.Exists(modelFile))
+          if (!File.Exists(configFile))
           {
-            Logger.Warn($"Provide model file does not exist: '{modelFile}'");
+            Logger.Warn("Provide start configuration " +
+                        $"file does not exist: '{configFile}'");
             return;
           }
           
-          model = File.ReadAllText(modelFile);
+          config = File.ReadAllText(configFile);
         }
 
         // -- Parse simulation data sub directory
@@ -127,7 +132,7 @@ namespace charlie
         Logger.Say($"Running Simulation {sim.ClassName} {iterations}x{runs}");
         for (var i = 0; i < runs; i++)
         {
-          run.Init(model);
+          run.Init(config);
           run.UpdateSync(iterations);
           run.SaveImage();
           run.End();
@@ -239,19 +244,19 @@ namespace charlie
       ButtonPressEvent += (o, args) =>
       {
         IsFocus = true;
-        Console.WriteLine(args.Event.X + " " + args.Event.Y);
+//        Console.WriteLine(args.Event.X + " " + args.Event.Y);
       };
-      KeyPressEvent += (o, args) => Console.WriteLine("KP: " + args.Event.Key);
-      KeyReleaseEvent += (o, args) => Console.WriteLine("KR: " + args.Event.Key);
-      ScrollEvent += (o, args) =>
-      {
-        _scrollY += args.Event.Direction == ScrollDirection.Down
-          ? args.Event.DeltaY : -args.Event.DeltaY;
-        if (_scrollY < 0) _scrollY = 0;
-        else if (_scrollY > MaxNumberOfLines)
-          _scrollY = MaxNumberOfLines;
-        Console.WriteLine("Scroll: " + _scrollY);
-      };
+//      KeyPressEvent += (o, args) => Console.WriteLine("KP: " + args.Event.Key);
+//      KeyReleaseEvent += (o, args) => Console.WriteLine("KR: " + args.Event.Key);
+//      ScrollEvent += (o, args) =>
+//      {
+//        _scrollY += args.Event.Direction == ScrollDirection.Down
+//          ? args.Event.DeltaY : -args.Event.DeltaY;
+//        if (_scrollY < 0) _scrollY = 0;
+//        else if (_scrollY > MaxNumberOfLines)
+//          _scrollY = MaxNumberOfLines;
+//        Console.WriteLine("Scroll: " + _scrollY);
+//      };
     }
 
     public void Log(string message)
@@ -368,30 +373,40 @@ namespace charlie
       _value = value;
       OnSet?.Invoke(this, EventArgs.Empty);
     }
+
+    public bool IsNull()
+    {
+      return _value == null;
+    }
   }
   
+  /// <summary>
+  /// Holds all data shared by separate parts of the Charlie Graphical App.
+  /// </summary>
   internal class CharlieModel
   {
+    private static readonly string PrefenceDir = Path.Combine(
+      Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+      ".charlie");
+    private static readonly string PreferenceFile = Path.Combine(
+      PrefenceDir, "config.txt");
+    public readonly string Version = "1.1.0";
+    public readonly string Author = "Jakob Rieke";
+    public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
     public int WindowX;
     public int WindowY;
     public int WindowWidth;
     public int WindowHeight;
-    
-    public List<string> RecentlyLoadedSims;
+    public readonly Observable<string[]> PreviousLoaded;
     public int SimDelay;
     public bool WriteLogToFile;
-    /// <summary>
-    /// Log every iteration or only the last one (before calling End()).
-    /// </summary>
     public bool LogEveryIteration;
     public int RenderHeight; 
     public int RenderWidth;
-    
+    public readonly string DefaultSimPath;
+    public readonly string DefaultSimClass;
     public Simulation Sim;
-
-//    public SimRun ActiveRun;
     public readonly Observable<SimRun> ActiveRun;
-    
     public readonly List<SimRun> ScheduledRuns;
     
     public CharlieModel()
@@ -400,7 +415,7 @@ namespace charlie
       WindowY = 80;
       WindowWidth = 380;
       WindowHeight = 600;
-      RecentlyLoadedSims = new List<string>();
+      PreviousLoaded = new Observable<string[]>();
       SimDelay = 10;
       WriteLogToFile = false;
       LogEveryIteration = false;
@@ -408,6 +423,9 @@ namespace charlie
       RenderWidth = 800;
       ScheduledRuns = new List<SimRun>();
       ActiveRun = new Observable<SimRun>();
+      DefaultSimPath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory, "charlie.exe");
+      DefaultSimClass = "charlie.DefaultSimulation";
     }
 
     public override string ToString()
@@ -423,48 +441,80 @@ namespace charlie
       return result;
     }
 
-//    public bool LoadFromFile()
-//    {
-//      var configFile = Path.Combine(
-//        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), 
-//        ".charlie", 
-//        "config.txt");
-//
-//      if (!File.Exists(configFile)) return false;
-//      
-//      var config = File.ReadAllText(configFile).Split('\n');
-//      foreach (var line in config)
-//      {
-//        
-//      }
-//
-//      return true;
-//    }
-//
-//    public bool SaveToFile()
-//    {
-//      
-//    }
+    private class Preferences
+    {
+      public int WindowX;
+      public int WindowY;
+      public int WindowWidth;
+      public int WindowHeight;
+      public string[] PreviousLoadedSims;
+      public int SimDelay;
+      public bool LogEveryIteration;
+      public int RenderWidth;
+      public int RenderHeight; 
+    }
+    
+    public static CharlieModel LoadFromFile()
+    {
+      var model = new CharlieModel();
+      if (!Directory.Exists(PrefenceDir) 
+          || !File.Exists(PreferenceFile)) return model;
+
+      var text = File.ReadAllText(PreferenceFile);
+      var pref = JsonNet.Deserialize<Preferences>(text);
+      
+      model.WindowX = pref.WindowX;
+      model.WindowY = pref.WindowY;
+      model.WindowWidth = pref.WindowWidth;
+      model.WindowHeight = pref.WindowHeight;
+      model.PreviousLoaded.Set(pref.PreviousLoadedSims);
+      model.SimDelay = pref.SimDelay;
+      model.LogEveryIteration = pref.LogEveryIteration;
+      model.RenderWidth = pref.RenderWidth;
+      model.RenderHeight = pref.RenderHeight;
+
+      return model;
+    }
+
+    public static void SaveToFile(CharlieModel model)
+    {
+      var pref = new Preferences
+      {
+        WindowX = model.WindowX,
+        WindowY = model.WindowY,
+        WindowHeight = model.WindowHeight,
+        WindowWidth = model.WindowWidth,
+        PreviousLoadedSims = model.PreviousLoaded.Get(),
+        SimDelay = model.SimDelay,
+        LogEveryIteration = model.LogEveryIteration,
+        RenderHeight = model.RenderHeight,
+        RenderWidth = model.RenderWidth
+      };
+
+      if (!Directory.Exists(PrefenceDir))
+        Directory.CreateDirectory(PrefenceDir);
+      
+      File.WriteAllText(PreferenceFile, JsonNet.Serialize(pref));
+    }
   }
   
-  public class CharlieGraphicalApp
+  public class CharlieGtkApp
   {
-    public const string Version = "1.0.0";
-    public const string Author = "Jakob Rieke";
-    public const string Copyright = "Copyright © 2019 Jakob Rieke";
-    private CharlieModel _model;
+    private readonly CharlieModel _model;
 
+    private readonly Window _window;
+    private readonly AccelGroup _accelGroup;
     private DrawingArea _canvas;
     private LogOutput _logOutput;
     private Label _iterationLbl;
-    private Box _title;
-    private VBox _recentlyLoaded;
-    private TextBuffer _modelBuffer;
+    private TextBuffer _configBuffer;
+    
 
-    public CharlieGraphicalApp()
+    public CharlieGtkApp()
     {
-      _model = new CharlieModel();
-      
+      _model = CharlieModel.LoadFromFile();
+      _accelGroup = new AccelGroup();
+
       var provider = new CssProvider();
       provider.LoadFromPath(GetResource("style.css"));
       StyleContext.AddProviderForScreen(Screen.Default, provider, 800);
@@ -479,10 +529,16 @@ namespace charlie
       };
       window.Move(_model.WindowX, _model.WindowY);
       window.SetIconFromFile(GetResource("logo.png"));
+      window.AddAccelGroup(_accelGroup);
 
-      window.Destroyed += (sender, args) => Quit();
+      window.Destroyed += (sender, args) =>
+      {
+        Quit();
+        CharlieModel.SaveToFile(_model);
+      };
       window.Show();
-      
+
+      _window = window;
       window.Child = CreateRoot();
       window.Child.ShowAll();
     }
@@ -499,58 +555,22 @@ namespace charlie
     
     private void LoadDefault()
     {
-      Load(AppDomain.CurrentDomain.BaseDirectory + "/Examples.dll",
-        "charlie.DefaultSimulation");
-    }
-    
-    private void Load(string complexPath)
-    {
-      try
-      {
-        var parsed = Simulation.ParseComplexPath(complexPath);
-        Load(parsed[0], parsed[1]);
-      }
-      catch (ArgumentException)
-      {
-        Logger.Warn("Invalid path, please specify class inside dll");
-      }
+      Load(_model.DefaultSimPath, _model.DefaultSimClass);
     }
     
     /// <summary>
     /// Load a simulation from a given .dll file and a classname, create
-    /// a new simulation run, initialize it and update the model. 
+    /// a new simulation run, initialize it and update the start configuration. 
     /// </summary>
     /// <param name="path"></param>
     /// <param name="className"></param>
-    private void Load(string path, string className)
+    private bool Load(string path, string className)
     {
-      _model.Sim?.Unload();
-      
       try
       {
+        _model.Sim?.Unload();
         _model.Sim = new Simulation(path, className);
         
-        // -- Update recently loaded simulations
-
-        var simName = path + ":" + className;
-        if (!_model.RecentlyLoadedSims.Contains(simName))
-        {
-          _model.RecentlyLoadedSims.Add(simName);
-          _model.RecentlyLoadedSims.ForEach(s => Console.WriteLine(s));
-          var recentEntry = new Label($"{path} : <u>{className}</u>") 
-          {
-            Wrap = true, 
-            Name = "RecentEntry",
-            Xalign = 0,
-            Halign = Align.Start,
-            UseMarkup = true,
-            Selectable = true
-          };
-
-          _recentlyLoaded.Add(recentEntry);
-          _recentlyLoaded.ShowAll();
-        }
-
         // -- Create run from simulation
         
         var run = new SimRun(_model.Sim.Spawn())
@@ -571,15 +591,19 @@ namespace charlie
         run.Init(run.Instance.GetConfig());
         
         _model.ActiveRun.Set(run);
+        
+        return true;
       }
       catch (ArgumentException e)
       {
         Logger.Warn(e.Message);
         _model.Sim = null;
         LoadDefault();
+        
+        return false;
       }
     }
-    
+
     private static string GetResource(string resource)
     {
       return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
@@ -598,39 +622,18 @@ namespace charlie
     
     private Widget CreateRoot()
     {
-      _title = new VBox(false, 5)
-      {
-        new Label("No simulation loaded") {Name = "title", Xalign = 0},
-        new Label
-        {
-          Text = "Enter a path to a simulation e.g.\n" +
-                 "- '/my/simulation.dll : some_namespace.MySimulation'\n" +
-                 "- '/my/simulation.dll : MySimulation'",
-          Wrap = true, 
-          Halign = Align.Start, 
-          Xalign = 0
-        }
-      };
-      _model.ActiveRun.OnSet += (sender, args) =>
-      {
-        ((Label) _title.Children[0]).Text = 
-          _model.ActiveRun.Get().Instance.GetTitle();
-        ((Label) _title.Children[1]).Text = 
-          _model.ActiveRun.Get().Instance.GetDescr();
-      };
-
       _logOutput = new LogOutput();
       
       var content = new VBox(false, 20) {Name = "root"};
       content.PackStart(CreateLoadArea(), false, false, 0);
-      content.PackStart(_title, false, false, 0);
-      content.PackStart(CreateModelArea(), false, false, 0);
+      content.PackStart(CreateTitle(), false, false, 0);
+      content.PackStart(CreateStartConfigArea(), false, false, 0);
       content.PackStart(CreateCanvasArea(), false, false, 0);
       content.PackStart(CreateControlArea(), false, false, 0);
-      content.PackStart(CreateStateDebugArea(), false, false, 0);
+//      content.PackStart(CreateStateDebugArea(), false, false, 0);
       content.PackStart(CreateConfigArea(), false, false, 0);  
-      content.PackStart(CreateScheduleArea(), false, false, 0);  
-//      content.PackStart(CreateAboutArea(), false, false, 0);
+//      content.PackStart(CreateScheduleArea(), false, false, 0);  
+      content.PackStart(CreateAboutArea(), false, false, 0);
       content.SizeAllocated += (o, a) => content.QueueDraw();
 
       var mainArea = new ScrolledWindow
@@ -648,13 +651,90 @@ namespace charlie
       result.PackEnd(_logOutput, false, false, 0);
       return result;
     }
-    
+
+    private void AddAccelerator(Widget widget, string signal, Key key)
+    {
+      widget.AddAccelerator(signal, _accelGroup, 
+        new AccelKey(key, ModifierType.Mod2Mask, AccelFlags.Visible));
+      widget.AddAccelerator(signal, _accelGroup, 
+        new AccelKey(key, ModifierType.ControlMask, AccelFlags.Visible));
+    }
+
+    public void ShowDialog(Widget content)
+    {
+      var dialog = new Dialog("Hello", _window,
+        DialogFlags.DestroyWithParent)
+      {
+        WidthRequest = 300,
+        HeightRequest = 100,
+        Decorated = false,
+        WindowPosition = WindowPosition.CenterOnParent,
+        ContentArea = {content},
+        BorderWidth = 0
+      };
+      dialog.ShowAll();
+    }
+
+    private Widget CreateTitle()
+    {
+      var title = new VBox(false, 5)
+      {
+        new Label("No simulation loaded") {Name = "title", Xalign = 0},
+        new Label
+        {
+          Text = "Enter a path to a simulation e.g.\n" +
+                 "- '/my/simulation.dll : some_namespace.MySimulation'\n" +
+                 "- '/my/simulation.dll : MySimulation'",
+          Wrap = true,
+          UseMarkup = true,
+          Halign = Align.Start, 
+          Xalign = 0
+        }
+      };
+      _model.ActiveRun.OnSet += (sender, args) =>
+      {
+        var simTitle = _model.ActiveRun.Get().Instance.GetTitle();
+        var simDesc = _model.ActiveRun.Get().Instance.GetDescr();
+        ((Label) title.Children[0]).Text = string.IsNullOrEmpty(simTitle) ?
+            "Some Random Simulation" : simTitle;
+        ((Label) title.Children[1]).Text = string.IsNullOrEmpty(simDesc) ? 
+            "This simulation does not contain a description" : simDesc;
+      };
+      return title;
+    }
+
+    /// <summary>
+    /// Removes an element from an array. If the array is empty or does not
+    /// contain the element the array itself is returned. If the the provided
+    /// array is null, null is returned.
+    /// </summary>
+    /// <param name="data"></param>
+    /// <param name="value"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static T[] Remove<T>(T[] data, T value)
+    {
+      if (data == null) return null;
+      if (data.Length == 0) return data;
+      
+      var result = new T[data.Length - 1];
+      var index = -1;
+      for (var i = 0; i < data.Length; i++)
+      {
+        if (data[i].Equals(value)) index = i;
+      }
+
+      if (index == -1) return data;
+      
+      Array.Copy(data, 0, result, 0, index);
+      Array.Copy(data, index + 1, result, index, result.Length);
+      return result;
+    }
+
     private Box CreateLoadArea()
     {
-      var defaultPath = 
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Examples.dll") + 
-        " : charlie.DefaultSimulation";
-      var pathEntry = new Entry(defaultPath)
+      var pathEntry = new Entry(
+        $"{_model.DefaultSimPath}:{_model.DefaultSimClass}")
       {
         PlaceholderText = "/path/to/your/module.dll", 
         HasFocus = false,
@@ -662,8 +742,60 @@ namespace charlie
       };
       pathEntry.FocusGrabbed += (sender, args) => 
         pathEntry.SelectRegion(pathEntry.TextLength, pathEntry.TextLength);
+
+      var previousLoadedArea = new VBox(false, 0)
+      {
+        Name = "previousLoadedArea"
+      };
+
+      void AddEntry(string complexPath)
+      {
+        var parsed = Simulation.ParseComplexPath(complexPath);
+        var loadEntryBtn = new Button($"- {parsed[1]}")
+        {
+          BorderWidth = 0, Xalign = 0
+        };
+        loadEntryBtn.Clicked += (o, eventArgs) =>
+        {
+          pathEntry.Text = complexPath;
+          Load(parsed[0], parsed[1]);
+        };
+
+        var removeEntryBtn = new Button("x");
+        removeEntryBtn.Clicked += (sender, args) =>
+        {
+          var previousLoaded = _model.PreviousLoaded.Get();
+          _model.PreviousLoaded.Set(Remove(previousLoaded, complexPath));
+        };
+
+        var entry = new HBox(false, 10);
+        entry.PackStart(loadEntryBtn, false, false, 0);
+        entry.PackEnd(removeEntryBtn, false, false, 0);
+        
+        previousLoadedArea.Add(entry);
+      }
       
+      foreach (var complexPath in _model.PreviousLoaded.Get()) 
+        AddEntry(complexPath);
+      
+      previousLoadedArea.ShowAll();
+      
+      _model.PreviousLoaded.OnSet += (sender, args) =>
+      {
+        foreach (var entry in previousLoadedArea.Children)
+          previousLoadedArea.Remove(entry);
+
+        foreach (var complexPath in _model.PreviousLoaded.Get())
+        {
+          AddEntry(complexPath);
+        }
+
+        previousLoadedArea.ShowAll();
+      };
+
       var loadBtn = new Button("Load");
+      AddAccelerator(loadBtn, "activate", Key.l);
+      
       loadBtn.Clicked += (sender, args) =>
       {
         if (_model.ActiveRun.Get() != null && _model.ActiveRun.Get().Running)
@@ -672,17 +804,38 @@ namespace charlie
           return;
         }
         
-        Load(pathEntry.Text);
+        var parsed = Simulation.ParseComplexPath(pathEntry.Text);
+        if (parsed == null)
+        {
+          Logger.Warn("Invalid path, please specify class inside dll");
+          return;
+        }
+          
+        var path = parsed[0];
+        var className = parsed[1];
+        var complexPath = $"{path}:{className}";
+        var isNewSimLoaded = Load(path, className);
+
+        if (!isNewSimLoaded 
+            || _model.PreviousLoaded.Get().Contains(complexPath)) 
+          return;
+
+        var entryCount = _model.PreviousLoaded.Get().Length;
+        var buffer = new string[entryCount + 1];
+        buffer[0] = complexPath;
+        _model.PreviousLoaded.Get().CopyTo(buffer, 1);
+        _model.PreviousLoaded.Set(buffer);
       };
       
-      var loadControl = new HBox(false, 15);
+      var loadControl = new HBox(false, 10);
       loadControl.PackStart(pathEntry, true, true, 0);
       loadControl.PackStart(loadBtn, false, false, 0);
       
-      var recentlyLoadedSims = new VBox(false, 5) {loadControl};
-      _recentlyLoaded = recentlyLoadedSims;
+      var loadArea = new VBox(false, 5);
+      loadArea.PackStart(loadControl, false, false, 0);
+      loadArea.PackStart(previousLoadedArea, false, false, 0);
       
-      return recentlyLoadedSims;
+      return loadArea;
     }
     
     private Box CreateConfigArea()
@@ -745,7 +898,7 @@ namespace charlie
       var result = new VBox (false, 0) {Name = "config"};
       result.PackStart(title, false, false, 0);
       result.PackStart(delayControl, false, false, 0);
-      result.PackStart(logEveryIterControl, false, false, 0);
+//      result.PackStart(logEveryIterControl, false, false, 0);
       result.PackStart(logToFileControl, false, false, 0);
       result.ShowAll();
       
@@ -755,11 +908,12 @@ namespace charlie
     private Box CreateControlArea()
     {
       var startBtn = new Button("Start") {HasFocus = true};
+      AddAccelerator(startBtn, "activate", Key.r);
       startBtn.Clicked += Start;
 
       void Stop(object sender, EventArgs args)
       {
-        if (_model.ActiveRun == null) return;
+        if (_model.ActiveRun.IsNull()) return;
         
         _model.ActiveRun.Get().Stop();
         startBtn.Label = "Start";
@@ -769,7 +923,7 @@ namespace charlie
 
       void Start(object sender, EventArgs args)
       {
-        if (_model.ActiveRun == null) return;
+        if (_model.ActiveRun.IsNull()) return;
         
         _model.ActiveRun.Get().Update();
         startBtn.Label = "Stop ";
@@ -778,9 +932,10 @@ namespace charlie
       }
       
       var initBtn = new Button("Init");
+      AddAccelerator(initBtn, "activate", Key.i);
       initBtn.Clicked += (sender, args) =>
       {
-        if (_model.ActiveRun == null) return;
+        if (_model.ActiveRun.IsNull()) return;
         if (_model.ActiveRun.Get().Started) Stop(this, EventArgs.Empty);
         
         var timer = new Timer(20);
@@ -796,7 +951,7 @@ namespace charlie
           _model.ActiveRun.Get().End();
           _model.ActiveRun.Get().IsWriteLogToFile = _model.WriteLogToFile;
           _model.ActiveRun.Get().SimDelay = _model.SimDelay;
-          _model.ActiveRun.Get().Init(_modelBuffer.Text);
+          _model.ActiveRun.Get().Init(_configBuffer.Text);
         };
         timer.Enabled = true;
       };
@@ -812,7 +967,7 @@ namespace charlie
       var stepsBtn = new Button("R") {TooltipText = "Run x iterations"};
       stepsBtn.Clicked += (sender, args) =>
       {
-        if (_model.ActiveRun == null) return;
+        if (_model.ActiveRun.IsNull()) return;
         if (_model.ActiveRun.Get().Running) return;
         if (int.TryParse(stepsEntry.Text, out var x)) 
           _model.ActiveRun.Get().Update(x);
@@ -826,9 +981,10 @@ namespace charlie
         TooltipText = "Save the current render output as PNG",
         Name = "pictureBtn"
       };
+      AddAccelerator(pictureBtn, "activate", Key.p);
       pictureBtn.Clicked += (s, a) =>
       {
-        if (_model.ActiveRun == null) return;
+        if (_model.ActiveRun.IsNull()) return;
         
         _model.ActiveRun.Get().SaveImage();
       };
@@ -885,23 +1041,23 @@ namespace charlie
       return result;
     }
 
-    private Widget CreateModelArea()
+    private Widget CreateStartConfigArea()
     {
-      _modelBuffer = new TextBuffer(new TextTagTable())
+      _configBuffer = new TextBuffer(new TextTagTable())
       {
         Text = "# No simulation loaded\n"
       };
 
       _model.ActiveRun.OnSet += (sender, args) =>
       {
-        _modelBuffer.Text = _model.ActiveRun.Get().Instance.GetConfig();
+        _configBuffer.Text = _model.ActiveRun.Get().Instance.GetConfig();
       };
 
-      var title = new Label("Model")
+      var title = new Label("Configuration")
       {
         Xalign = 0, Valign = Align.Start
       };
-      var textView = new TextView(_modelBuffer)
+      var textView = new TextView(_configBuffer)
       {
         WidthRequest = 400,
         Indent = 3,
@@ -1024,7 +1180,7 @@ namespace charlie
 //        };
       };
       
-      var title = new Label("Model")
+      var title = new Label("Simulation State")
       {
         Xalign = 0, Valign = Align.Start
       };
@@ -1041,18 +1197,18 @@ namespace charlie
       return result;
     }
     
-    private static Box CreateAboutArea()
+    private Box CreateAboutArea()
     {
-      var aboutTitle = new Label("About")
+      var aboutTitle = new Label("Charlie")
       {
         Name = "aboutTitle", Halign = Align.Start
       };
       var result = new VBox(false, 1)
       {
         aboutTitle,
-        new Label("RunCharlie v" + Version) {Halign = Align.Start},
-        new Label(Author) {Halign = Align.Start},
-        new Label(Copyright) {Halign = Align.Start}
+        new Label("Version " + _model.Version) {Halign = Align.Start},
+        new Label($"Author {_model.Author}") {Halign = Align.Start},
+        new Label(_model.Copyright) {Halign = Align.Start}
       };
       result.Name = "about";
       return result;
