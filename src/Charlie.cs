@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Timers;
@@ -390,7 +389,7 @@ namespace charlie
       ".charlie");
     private static readonly string PreferenceFile = Path.Combine(
       PrefenceDir, "config.txt");
-    public readonly string Version = "1.1.0";
+    public readonly string Version = "1.2.1";
     public readonly string Author = "Jakob Rieke";
     public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
     public int WindowX;
@@ -425,7 +424,7 @@ namespace charlie
       ActiveRun = new Observable<SimRun>();
       DefaultSimPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "charlie.exe");
-      DefaultSimClass = "charlie.DefaultSimulation";
+      DefaultSimClass = "charlie.HelloWorld";
     }
 
     public override string ToString()
@@ -531,11 +530,7 @@ namespace charlie
       window.SetIconFromFile(GetResource("logo.png"));
       window.AddAccelGroup(_accelGroup);
 
-      window.Destroyed += (sender, args) =>
-      {
-        Quit();
-        CharlieModel.SaveToFile(_model);
-      };
+      window.Destroyed += (sender, args) => Quit();
       window.Show();
 
       _window = window;
@@ -547,10 +542,15 @@ namespace charlie
     {
       if (_model.ActiveRun.Get() != null)
       {
+        if (_model.ActiveRun.Get().Running) 
+          ShowMessageDialog("Please stop the simulation first");
+        
         _model.ActiveRun.Get().Stop();
         _model.ActiveRun.Get().End();
       }
+      
       Application.Quit();
+      CharlieModel.SaveToFile(_model);
     }
     
     private void LoadDefault()
@@ -596,7 +596,7 @@ namespace charlie
       }
       catch (ArgumentException e)
       {
-        Logger.Warn(e.Message);
+        ShowMessageDialog(e.Message);
         _model.Sim = null;
         LoadDefault();
         
@@ -652,27 +652,38 @@ namespace charlie
       return result;
     }
 
-    private void AddAccelerator(Widget widget, string signal, Key key)
+    private void ShowMessageDialog(string message)
     {
-      widget.AddAccelerator(signal, _accelGroup, 
-        new AccelKey(key, ModifierType.Mod2Mask, AccelFlags.Visible));
-      widget.AddAccelerator(signal, _accelGroup, 
-        new AccelKey(key, ModifierType.ControlMask, AccelFlags.Visible));
+      ShowDialog(new Label(message)
+      {
+        LineWrap = true, 
+        LineWrapMode = Pango.WrapMode.Word,
+        MaxWidthChars = 200
+      });
     }
 
-    public void ShowDialog(Widget content)
+    private void ShowDialog(Widget content)
     {
-      var dialog = new Dialog("Hello", _window,
-        DialogFlags.DestroyWithParent)
+      var dialog = new Dialog("Charlie Dialog", _window,
+        DialogFlags.Modal)
       {
         WidthRequest = 300,
-        HeightRequest = 100,
         Decorated = false,
         WindowPosition = WindowPosition.CenterOnParent,
-        ContentArea = {content},
-        BorderWidth = 0
+        BorderWidth = 0,
+        SkipTaskbarHint = true
       };
+      _window.GetPosition(out var winX, out var winY);
+      dialog.GetPosition(out var x, out var y);
+      dialog.Move(x, winY + 30);
+
+      dialog.AddActionWidget(new Button("Ok"), ResponseType.Close);
+      dialog.ContentArea.Spacing = 10;
+      dialog.ContentArea.Add(content);
+
       dialog.ShowAll();
+      dialog.Run();
+      dialog.Destroy();
     }
 
     private Widget CreateTitle()
@@ -793,21 +804,20 @@ namespace charlie
         previousLoadedArea.ShowAll();
       };
 
-      var loadBtn = new Button("Load");
-      AddAccelerator(loadBtn, "activate", Key.l);
-      
+      var loadBtn = new Button("_Load");
+
       loadBtn.Clicked += (sender, args) =>
       {
         if (_model.ActiveRun.Get() != null && _model.ActiveRun.Get().Running)
         {
-          Logger.Warn("Please stop the simulation first");
+          ShowMessageDialog("Please stop the simulation first");
           return;
         }
         
         var parsed = Simulation.ParseComplexPath(pathEntry.Text);
         if (parsed == null)
         {
-          Logger.Warn("Invalid path, please specify class inside dll");
+          ShowMessageDialog("Invalid path, please specify class inside dll");
           return;
         }
           
@@ -840,11 +850,6 @@ namespace charlie
     
     private Box CreateConfigArea()
     {
-//      var generalSubtitleIcon = new Image(
-//        GetResource("general-prefs-icon.png"));
-//      generalSubtitleIcon.Pixbuf = generalSubtitleIcon.Pixbuf.ScaleSimple(
-//        15, 15, InterpType.Bilinear);
-
       var title = new Label("Configuration") 
       {
         Name = "configTitle",
@@ -907,8 +912,7 @@ namespace charlie
 
     private Box CreateControlArea()
     {
-      var startBtn = new Button("Start") {HasFocus = true};
-      AddAccelerator(startBtn, "activate", Key.r);
+      var startBtn = new Button("_Start") {HasFocus = true};
       startBtn.Clicked += Start;
 
       void Stop(object sender, EventArgs args)
@@ -931,8 +935,7 @@ namespace charlie
         startBtn.Clicked += Stop;
       }
       
-      var initBtn = new Button("Init");
-      AddAccelerator(initBtn, "activate", Key.i);
+      var initBtn = new Button("_Init");
       initBtn.Clicked += (sender, args) =>
       {
         if (_model.ActiveRun.IsNull()) return;
@@ -971,7 +974,7 @@ namespace charlie
         if (_model.ActiveRun.Get().Running) return;
         if (int.TryParse(stepsEntry.Text, out var x)) 
           _model.ActiveRun.Get().Update(x);
-        else Logger.Warn("Please enter a number >= 0.");
+        else ShowMessageDialog("Please enter a number >= 0.");
       };
       var stepsBox = new HBox(false, 0) {stepsEntry, stepsBtn};
       stepsBox.Name = "runSteps";
@@ -981,7 +984,6 @@ namespace charlie
         TooltipText = "Save the current render output as PNG",
         Name = "pictureBtn"
       };
-      AddAccelerator(pictureBtn, "activate", Key.p);
       pictureBtn.Clicked += (s, a) =>
       {
         if (_model.ActiveRun.IsNull()) return;
@@ -1132,7 +1134,8 @@ namespace charlie
           };
           _model.ScheduledRuns.Add(run);
         }
-        else Logger.Warn("Please enter a iterations x runs e.g. '100 x 20'");
+        else ShowMessageDialog("Please enter a iterations " +
+                               "x runs e.g. '100 x 20'");
       };
       var scheduleBox = new HBox(false, 0) {Name = "runSteps"};
       scheduleBox.PackStart(scheduleEntry, true, true, 0);

@@ -21,13 +21,13 @@ namespace charlie
     public double Diameter;
     public double RotationSpeed;
   }
-  
-  public class DefaultSimulation : AbstractSimulation
+
+  public class HelloWorld : AbstractSimulation
   {
     private AstronomicalObject _sun;
     private AstronomicalObject _moon;
     private AstronomicalObject[] _planets;
-    
+
     public override string GetTitle()
     {
       return "Hello World";
@@ -41,7 +41,7 @@ namespace charlie
     public override string GetDescr()
     {
       return
-        "This is a hello world demo of the charlie simulation framework.\n" +
+        "This is a hello world demo for the charlie simulation framework.\n" +
         "Charlie is multi purpose simulation app. It's goal is to provide a " +
         "clean and simple API as well as tools to debug, run and manage " +
         "your simulations.\n" +
