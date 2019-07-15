@@ -56,6 +56,10 @@
       <HintPath>packages\GtkSharp.3.22.24.36\lib\netstandard2.0\GtkSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Json.Net, Version=1.0.16.1, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\Json.Net.1.0.16\lib\netstandard2.0\Json.Net.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="LibOptimization, Version=1.12.1.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>packages\LibOptimization.1.12.1\lib\net40\LibOptimization.dll</HintPath>
       <Private>True</Private>

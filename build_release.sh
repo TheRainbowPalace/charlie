@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ./build.sh
-./build_examples.sh
 ./build_resources.sh
 ./build_icons.sh
 rm -fr bin/Charlie.app
