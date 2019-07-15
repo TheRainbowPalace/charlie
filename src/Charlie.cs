@@ -389,7 +389,7 @@ namespace charlie
       ".charlie");
     private static readonly string PreferenceFile = Path.Combine(
       PrefenceDir, "config.txt");
-    public readonly string Version = "1.2.1";
+    public readonly string Version = "0.2.1";
     public readonly string Author = "Jakob Rieke";
     public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
     public int WindowX;
