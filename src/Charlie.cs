@@ -8,7 +8,6 @@ using Gdk;
 using Gtk;
 using Json.Net;
 using Application = Gtk.Application;
-using Key = Gdk.Key;
 using Path = System.IO.Path;
 using Window = Gtk.Window;
 using WindowType = Gtk.WindowType;
@@ -46,7 +45,15 @@ namespace charlie
 		    var app = new CharlieGtkApp();
 		    Application.Run();
 		  }
-		  else if (args[0] == "--help" || args[0] == "-h")
+		  else CharlieConsole.Run(args);
+		}
+  }
+
+  public static class CharlieConsole
+  {
+    public static void Run(string[] args)
+    {
+      if (args[0] == "--help" || args[0] == "-h")
 		  {
 		    Logger.Say("Commands:");
 		    Logger.Say("--help --> Print help information");
@@ -222,7 +229,7 @@ namespace charlie
       {
         Logger.Say($"Unknown command '{args[0]}', use --help");
       }
-		}
+    }
   }
 
   internal class LogTextView : DrawingArea
@@ -389,43 +396,27 @@ namespace charlie
       ".charlie");
     private static readonly string PreferenceFile = Path.Combine(
       PrefenceDir, "config.txt");
-    public readonly string Version = "0.2.2";
+    public readonly string Version = "0.2.3";
     public readonly string Author = "Jakob Rieke";
     public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
-    public int WindowX;
-    public int WindowY;
-    public int WindowWidth;
-    public int WindowHeight;
-    public readonly Observable<string[]> PreviousLoaded;
-    public int SimDelay;
+    public int WindowX = 20;
+    public int WindowY = 80;
+    public int WindowWidth = 380;
+    public int WindowHeight = 600;
+    public readonly Observable<string[]> PreviousLoaded =
+      new Observable<string[]>();
+    public readonly int PrevLoadedMaxLength = 5;
+    public int SimDelay = 10;
     public bool WriteLogToFile;
     public bool LogEveryIteration;
-    public int RenderHeight; 
-    public int RenderWidth;
-    public readonly string DefaultSimPath;
-    public readonly string DefaultSimClass;
+    public int RenderHeight = 800;
+    public int RenderWidth = 800;
+    public readonly string DefaultSimPath = Path.Combine(
+      AppDomain.CurrentDomain.BaseDirectory, "charlie.exe");
+    public readonly string DefaultSimClass = "charlie.HelloWorld";
     public Simulation Sim;
-    public readonly Observable<SimRun> ActiveRun;
-    public readonly List<SimRun> ScheduledRuns;
-    
-    public CharlieModel()
-    {
-      WindowX = 20;
-      WindowY = 80;
-      WindowWidth = 380;
-      WindowHeight = 600;
-      PreviousLoaded = new Observable<string[]>();
-      SimDelay = 10;
-      WriteLogToFile = false;
-      LogEveryIteration = false;
-      RenderHeight = 800;
-      RenderWidth = 800;
-      ScheduledRuns = new List<SimRun>();
-      ActiveRun = new Observable<SimRun>();
-      DefaultSimPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "charlie.exe");
-      DefaultSimClass = "charlie.HelloWorld";
-    }
+    public readonly Observable<SimRun> ActiveRun = new Observable<SimRun>();
+    public readonly List<SimRun> ScheduledRuns = new List<SimRun>();
 
     public override string ToString()
     {
@@ -814,12 +805,13 @@ namespace charlie
         if (!isNewSimLoaded 
             || _model.PreviousLoaded.Get().Contains(complexPath)) 
           return;
-
-        var entryCount = _model.PreviousLoaded.Get().Length;
-        var buffer = new string[entryCount + 1];
-        buffer[0] = complexPath;
-        _model.PreviousLoaded.Get().CopyTo(buffer, 1);
-        _model.PreviousLoaded.Set(buffer);
+        
+        var buffer = new List<string>(_model.PreviousLoaded.Get());
+        buffer.Insert(0, complexPath);
+        if (buffer.Count > _model.PrevLoadedMaxLength) 
+          buffer.RemoveAt(buffer.Count - 1);
+        
+        _model.PreviousLoaded.Set(buffer.ToArray());
       };
       
       var loadControl = new HBox(false, 10);
