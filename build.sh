@@ -10,3 +10,4 @@ cp -r resources $OUTPUTDIR
 
 # Update recent build
 zip releases/Charlie-dev.zip -r -q bin/Debug/net471/
+tar -czvf releases/Charlie-dev.tar.gz bin/Debug/net471/
