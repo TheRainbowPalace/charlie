@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ./build.sh
-./build_resources.sh
 ./build_icons.sh
 rm -fr bin/Charlie.app
 cp -r build-resources/mac-os-base bin/Charlie.app

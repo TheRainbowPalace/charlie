@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Cairo;
-using MathNet.Numerics.Random;
 using DateTime = System.DateTime;
 using Path = System.IO.Path;
 using Thread = System.Threading.Thread;
@@ -343,7 +342,7 @@ namespace charlie
         text.Substring(index + 1, text.Length - 1 - index)
       };
     }
-    
+
     private void Load(string path, string className)
     {
       if (!File.Exists(path))
@@ -649,7 +648,7 @@ namespace charlie
 
       var rand = new Random();
       var title = "render-" + Instance.GetTitle().Replace(" ", "_") + "-" +
-                  Math.Truncate(rand.NextDecimal() * 100000000);
+                  Math.Truncate(rand.NextDouble() * 100000000);
 
       var surface = new ImageSurface(ImageData, Format.ARGB32,
         RenderWidth, RenderHeight, 4 * RenderWidth);

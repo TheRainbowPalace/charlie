@@ -1,109 +1,51 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<!-- 
+  For more information see 
+  https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-reference 
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{728AAEE6-CD09-447C-97FA-EA43BC6E8C48}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>charlie</RootNamespace>
-    <AssemblyName>charlie</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+<!--    <TargetFramework>netcoreapp3</TargetFramework>-->
+    <TargetFramework>net471</TargetFramework>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Charlie\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="AtkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\AtkSharp.3.22.24.36\lib\netstandard2.0\AtkSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="CairoSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\CairoSharp.3.22.24.36\lib\netstandard2.0\CairoSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="GdkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\GdkSharp.3.22.24.36\lib\netstandard2.0\GdkSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="GioSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\GioSharp.3.22.24.36\lib\netstandard2.0\GioSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="GLibSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\GLibSharp.3.22.24.36\lib\netstandard2.0\GLibSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="GtkSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\GtkSharp.3.22.24.36\lib\netstandard2.0\GtkSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Json.Net, Version=1.0.16.1, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\Json.Net.1.0.16\lib\netstandard2.0\Json.Net.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="LibOptimization, Version=1.12.1.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\LibOptimization.1.12.1\lib\net40\LibOptimization.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="MathNet.Numerics, Version=4.7.0.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\MathNet.Numerics.4.7.0\lib\net461\MathNet.Numerics.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="PangoSharp, Version=3.22.24.36, Culture=neutral, PublicKeyToken=null">
-      <HintPath>packages\PangoSharp.3.22.24.36\lib\netstandard2.0\PangoSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
+    <PackageReference Include="GtkSharp" Version="3.22.24.37" />
+    <PackageReference Include="Json.Net" Version="1.0.16" />
   </ItemGroup>
+
+  <Target Name="DeleteResources">
+    <Delete Files="$(OutputPath)\resources" />
+  </Target>
+  
   <ItemGroup>
-    <Compile Include="src\clipper.cs" />
-    <Compile Include="src\Examples.cs" />
-    <Compile Include="src\Geometry.cs" />
-    <Compile Include="src\ISimulation.cs" />
-    <Compile Include="src\OptimizationFcts.cs" />
-    <Compile Include="src\PcgRandom.cs" />
-    <Compile Include="src\Charlie.cs" />
-    <Compile Include="src\Simulator.cs" />
-    <Compile Include="src\Tuple.cs" />
+    <Content Include="resources\*.*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Remove="resources\**" />
   </ItemGroup>
+  
   <ItemGroup>
-    <None Include="packages.config" />
+    <Compile Remove="resources\**" />
+    <Compile Remove="releases\**" />
+    <Compile Remove="docs\**" />
+    <Compile Remove="build-resources\**" />
   </ItemGroup>
+
   <ItemGroup>
-    <Content Include="todo.md" />
+    <EmbeddedResource Remove="resources\**" />
+    <EmbeddedResource Remove="releases\**" />
+    <EmbeddedResource Remove="docs\**" />
+    <EmbeddedResource Remove="build-resources\**" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-         Other similar extension points exist, see Microsoft.Common.targets.
-    <Target Name="BeforeBuild">
-    </Target>
-    <Target Name="AfterBuild">
-    </Target>
-    -->
+
+  <ItemGroup>
+    <None Remove="resources\**" />
+    <None Remove="releases\**" />
+    <None Remove="docs\**" />
+    <None Remove="build-resources\**" />
+  </ItemGroup>
+
 </Project>

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# csc -target:library -out:bin/Examples.dll \
-#     -r:packages/CairoSharp.3.22.24.36/lib/netstandard2.0/CairoSharp.dll \
-#     src/Examples.cs src/ISimulation.cs
+OUTPUTDIR="bin/Debug/net471"
 
 msbuild charlie.csproj -nologo -verbosity:quiet
 
+rm -fr $OUTPUTDIR/resources
+cp -r resources $OUTPUTDIR

@@ -32,23 +32,6 @@ namespace charlie
     }
   }
 
-  /// <summary>
-  /// Charlie, a general simulation framework.
-  /// </summary>
-	public static class Charlie
-  {
-		public static void Main(string[] args)
-		{
-		  if (args.Length == 0)
-		  {
-		    Application.Init();
-		    var app = new CharlieGtkApp();
-		    Application.Run();
-		  }
-		  else CharlieConsole.Run(args);
-		}
-  }
-
   public static class CharlieConsole
   {
     public static void Run(string[] args)
