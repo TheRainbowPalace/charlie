@@ -396,7 +396,7 @@ namespace charlie
       ".charlie");
     private static readonly string PreferenceFile = Path.Combine(
       PrefenceDir, "config.txt");
-    public readonly string Version = "0.2.3";
+    public readonly string Version = "0.2.4";
     public readonly string Author = "Jakob Rieke";
     public readonly string Copyright = "Copyright © 2019 Jakob Rieke";
     public int WindowX = 20;
@@ -827,7 +827,7 @@ namespace charlie
     
     private Box CreateConfigArea()
     {
-      var title = new Label("Configuration") 
+      var title = new Label("Simulator Configuration") 
       {
         Name = "configTitle",
         Halign = Align.Start,
@@ -1032,7 +1032,7 @@ namespace charlie
         _configBuffer.Text = _model.ActiveRun.Get().Instance.GetConfig();
       };
 
-      var title = new Label("Configuration")
+      var title = new Label("Start Configuration")
       {
         Xalign = 0, Valign = Align.Start
       };
