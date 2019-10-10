@@ -14,10 +14,10 @@ namespace charlie.Shell
 		    Logger.Say("--help --> Print help information");
         Logger.Say("--get (config|descr|meta) --> Get information about " +
 		               "the simulation");
-		    Logger.Say("--run <simulation> <iterations> <runs> <out-dir>" +
+		    Logger.Say("--run <simulation> <iterations> <runs> <out-dir> " +
 		               "--> Run a simulation for a number of runs, each " +
 		               "for a certain number of iterations. The results are " +
-		               "stored as files.");
+		               "stored in ~/.charlie/<out-dir>");
 		  }
 		  else if (args[0] == "--get")
 		  {
