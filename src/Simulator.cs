@@ -14,7 +14,7 @@ using Thread = System.Threading.Thread;
 namespace charlie
 {
   /// <summary>
-  /// A basic interface to load 
+  /// The basic interface to load a C# simulation.
   /// Normally you would not use this class directly but the Simulation class
   /// instead.
   /// </summary>
