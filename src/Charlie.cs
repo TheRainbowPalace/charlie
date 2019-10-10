@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Timers;
 using Cairo;
+using charlie.Simulator;
 using Gdk;
 using Gtk;
 using Json.Net;
