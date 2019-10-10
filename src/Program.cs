@@ -1,4 +1,6 @@
-﻿using Gtk;
+﻿using charlie.Graphical;
+using charlie.Shell;
+using Gtk;
 
 namespace charlie
 {
@@ -9,10 +11,10 @@ namespace charlie
             if (args.Length == 0)
             {
                 Application.Init();
-                var app = new CharlieGtkApp();
+                var app = new GraphicalApp();
                 Application.Run();
             }
-            else CharlieConsole.Run(args);
+            else ShellApp.Run(args);
         }
     }
 }
