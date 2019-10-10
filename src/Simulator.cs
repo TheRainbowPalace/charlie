@@ -350,16 +350,18 @@ namespace charlie
 
       try
       {
-        var ads = new AppDomainSetup
-        {
-          ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
-          DisallowBindingRedirects = false,
-          DisallowCodeDownload = true,
-          ConfigurationFile =
-            AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
-        };
+//        var ads = new AppDomainSetup
+//        {
+//          ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
+//          DisallowBindingRedirects = false,
+//          DisallowCodeDownload = true,
+//          ConfigurationFile =
+//            AppDomain.CurrentDomain.SetupInformation.ConfigurationFile
+//        };
         
-        _domain = AppDomain.CreateDomain("SimulationDomain", null, ads);
+//        _domain = AppDomain.CreateDomain("SimulationDomain", null, ads);
+
+        _domain = AppDomain.CreateDomain("SimulationDomain");
         
         _proxy = (SimulationProxy) _domain.CreateInstanceAndUnwrap(
           typeof(SimulationProxy).Assembly.FullName, 
