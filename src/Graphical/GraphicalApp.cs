@@ -141,32 +141,54 @@ namespace charlie.Graphical
     {
       _logOutput = new LogOutput();
       
-      var content = new VBox(false, 20) {Name = "root"};
-      content.PackStart(CreateLoadArea(), false, false, 0);
-      content.PackStart(CreateTitle(), false, false, 0);
-      content.PackStart(CreateStartConfigArea(), false, false, 0);
-      content.PackStart(CreateCanvasArea(), false, false, 0);
-      content.PackStart(CreateControlArea(), false, false, 0);
-//      content.PackStart(CreateStateDebugArea(), false, false, 0);
-      content.PackStart(CreateConfigArea(), false, false, 0);  
-//      content.PackStart(CreateScheduleArea(), false, false, 0);  
-      content.PackStart(CreateAboutArea(), false, false, 0);
-      content.SizeAllocated += (o, a) => content.QueueDraw();
+      var simulationArea = new VBox(false, 20)
+      {
+        CreateLoadArea(),
+        CreateTitle(),
+        CreateCanvasArea(),
+        CreateControlArea(),
+        CreateAboutArea()
+      };
+      
+      var configArea = new VBox(false, 20);
+      configArea.PackStart(CreateConfigArea(), false, false, 0);
+      configArea.PackStart(CreateStartConfigArea(), true, true, 0);
 
-      var mainArea = new ScrolledWindow
+      var mainArea = new HBox(false, 0)
+      {
+        Name = "root"
+      };
+      
+      mainArea.PackStart(new ScrolledWindow
       {
         OverlayScrolling = false,
         VscrollbarPolicy = PolicyType.External,
         HscrollbarPolicy = PolicyType.Never,
-        MinContentWidth = 380,
         MinContentHeight = 420,
-        Child = content
+        MinContentWidth = 400,
+        Child = simulationArea
+      }, true, true, 0);
+      
+      mainArea.PackStart(new ScrolledWindow
+      {
+        OverlayScrolling = false,
+        VscrollbarPolicy = PolicyType.External,
+        HscrollbarPolicy = PolicyType.External,
+        MinContentHeight = 420,
+        MinContentWidth = 350,
+        Child = configArea
+      }, false, false, 0);
+
+      mainArea.SizeAllocated += (o, args) =>
+      {
+        mainArea.Children[1].Visible = args.Allocation.Width >= 800;
       };
 
-      var result = new VBox(false, 0);
-      result.PackStart(mainArea, true, true, 0);
-      result.PackEnd(_logOutput, false, false, 0);
-      return result;
+      var root = new VBox(false, 0);
+      root.PackStart(mainArea, true, true, 0);
+      root.PackEnd(_logOutput, false, false, 0);
+
+      return root;
     }
 
     private void ShowMessageDialog(string message)
