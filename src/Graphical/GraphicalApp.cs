@@ -207,7 +207,14 @@ namespace charlie.Graphical
     {
       var title = new VBox(false, 5)
       {
-        new Label("No simulation loaded") {Name = "title", Xalign = 0},
+        new Label("No simulation loaded")
+        {
+          Name = "title", Xalign = 0, Wrap = true
+        },
+        new Label
+        {
+          Wrap = true, Halign = Align.Start
+        },
         new Label
         {
           Text = "Enter a path to a simulation e.g.\n" +
@@ -217,15 +224,19 @@ namespace charlie.Graphical
           UseMarkup = true,
           Halign = Align.Start, 
           Xalign = 0
-        }
+        },
       };
       _model.ActiveRun.OnSet += (sender, args) =>
       {
         var simTitle = _model.ActiveRun.Get().Instance.GetTitle();
-        var simDesc = _model.ActiveRun.Get().Instance.GetDescr();
+        var simDesc = _model.ActiveRun.Get().Instance.GetDescr().Trim();
+        var simMeta = _model.ActiveRun.Get().Instance.GetMeta().Trim();
+
         ((Label) title.Children[0]).Text = string.IsNullOrEmpty(simTitle) ?
             "Some Random Simulation" : simTitle;
-        ((Label) title.Children[1]).Text = string.IsNullOrEmpty(simDesc) ? 
+        ((Label) title.Children[1]).Text = string.IsNullOrEmpty(simMeta) ? 
+          "" : simMeta;
+        ((Label) title.Children[2]).Text = string.IsNullOrEmpty(simDesc) ? 
             "This simulation does not contain a description" : simDesc;
       };
       return title;
