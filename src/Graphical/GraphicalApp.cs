@@ -20,7 +20,6 @@ namespace charlie.Graphical
     private readonly CharlieModel _model;
 
     private readonly Window _window;
-    private readonly AccelGroup _accelGroup;
     private DrawingArea _canvas;
     private LogOutput _logOutput;
     private Label _iterationLbl;
@@ -30,7 +29,7 @@ namespace charlie.Graphical
     public GraphicalApp()
     {
       _model = CharlieModel.LoadFromFile();
-      _accelGroup = new AccelGroup();
+//      var accelGroup = new AccelGroup();
 
       var provider = new CssProvider();
       provider.LoadFromPath(GetResource("style.css"));
@@ -46,7 +45,7 @@ namespace charlie.Graphical
       };
       window.Move(_model.WindowX, _model.WindowY);
       window.SetIconFromFile(GetResource("logo.png"));
-      window.AddAccelGroup(_accelGroup);
+//      window.AddAccelGroup(accelGroup);
 
       window.Destroyed += (sender, args) => Quit();
       window.Show();
