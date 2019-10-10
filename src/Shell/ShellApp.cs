@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using charlie.Simulator;
-using Path = System.IO.Path;
 
 namespace charlie.Shell
 {
@@ -13,9 +12,9 @@ namespace charlie.Shell
 		  {
 		    Logger.Say("Commands:");
 		    Logger.Say("--help --> Print help information");
-		    Logger.Say("--init <folder> <name> --> Initialize a new simulation " +
-		               "project.");
-		    Logger.Say("--run <simulation> <iterations> <runs> " +
+        Logger.Say("--get (config|descr|meta) --> Get information about " +
+		               "the simulation");
+		    Logger.Say("--run <simulation> <iterations> <runs> <out-dir>" +
 		               "--> Run a simulation for a number of runs, each " +
 		               "for a certain number of iterations. The results are " +
 		               "stored as files.");
@@ -33,17 +32,16 @@ namespace charlie.Shell
         if (args.Length < 4)
         {
           Logger.Warn("Invalid number of parameters to run a simulation.");
-          Logger.Warn("Correct usage:");
-          Logger.Warn("--run simulation iterations runs");
+          Logger.Warn("See --help for more information.");
           return;
         }
         if (!int.TryParse(args[2], out var iterations))
         {
-          Logger.Warn("Provide a number for iterations");
+          Logger.Warn($"'{args[2]}' is not a number.");
         }
         if (!int.TryParse(args[3], out var runs))
         {
-          Logger.Warn("Provide a number for runs");
+          Logger.Warn($"'{args[3]}' is not a number.");
         }
 
         Simulation sim;
@@ -104,83 +102,6 @@ namespace charlie.Shell
         }
         sim.Unload();
       }
-		  else if (args[0] == "--init")
-		  {
-		    string GetAttribute(string text)
-		    {
-		      string attribute = null;
-		      
-		      while (string.IsNullOrEmpty(attribute))
-		      {
-			      System.Console.Write($"{text}: ");
-		        attribute = System.Console.ReadLine();
-		      }
-		      
-		      return attribute;
-		    }
-
-		    bool GetBool(string question)
-		    {
-			    System.Console.Write($"{question}? y/N: ");
-		      var answer = System.Console.ReadLine();
-		      
-		      return answer != null && (answer == "y" || answer == "Y");
-		    }
-
-		    // -- Get attributes and folders
-		    
-		    var title = GetAttribute("Simulation title").Trim().Replace(' ', '-');
-		    var titleUnderscored = title.Replace('-', '_');
-		    
-		    var titleCamelCased = "";
-		    foreach (var part in title.Split('-'))
-		    {
-		      titleCamelCased += part[0].ToString().ToUpper() + part.Substring(1);
-		    }
-
-		    var author = GetAttribute("Author");
-		    var license = GetAttribute("Licence");
-		    
-		    var templateDir = Path.Combine(
-		      AppDomain.CurrentDomain.BaseDirectory,
-		      "resources",
-		      "simulation-template");
-		    var destinationDir = Path.Combine(
-		      Directory.GetCurrentDirectory(), title);
-		    
-		    // -- Replace directory if necessary
-		    
-		    if (Directory.Exists(destinationDir))
-		    {
-		      var isOverwrite = GetBool("Directory already exists, overwrite");
-		      if (!isOverwrite) return;
-		      
-		      Directory.Delete(destinationDir, true);
-		    }
-
-		    // -- Generate files
-		    
-		    Directory.CreateDirectory(destinationDir);
-		    
-		    var files = Directory.GetFiles(templateDir);
-		    foreach (var file in files)
-		    {
-		      var content = File.ReadAllText(file);
-		      content = content
-		        .Replace("simulation-template", title)
-		        .Replace("simulation_template", titleUnderscored)
-		        .Replace("SimulationTemplate", titleCamelCased)
-		        .Replace("<author-placeholder>", author)
-		        .Replace("<licence-placeholder>", license);
-		      
-		      var fileName = Path.GetFileName(file)
-		        .Replace("simulation-template", title);
-		      var destFile = Path.Combine(destinationDir, fileName);
-		      File.WriteAllText(destFile, content);
-		      
-		      Logger.Say("- " + Path.Combine(title, fileName));
-		    }
-		  }
       else
       {
         Logger.Say($"Unknown command '{args[0]}', use --help");
