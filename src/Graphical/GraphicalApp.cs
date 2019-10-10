@@ -200,7 +200,7 @@ namespace charlie.Graphical
 
       dialog.ShowAll();
       dialog.Run();
-      dialog.Destroy();
+      dialog.Dispose();
     }
 
     private Widget CreateTitle()
