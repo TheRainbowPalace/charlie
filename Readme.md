@@ -2,7 +2,7 @@
 
 
 
-#### Description
+### Description
 
 Charlie is a very small application to run discrete simulations written in C-Sharp and deployed as .dll files. It consists of a graphical user interface as well as a command line application. 
 
@@ -23,7 +23,7 @@ Further development on this software is not planned as the software only served 
 
 
 
-#### Installation
+### Installation
 
 The software can be installed throught the following steps:
 
@@ -45,7 +45,7 @@ The following **dependencies** must be installed in order to use the software:
 
   
 
-#### Usage
+### Usage
 
 Inside the extracted package follow one of these instructions:
 
@@ -66,7 +66,7 @@ Run the application from **command line** (bash shell):
 
 
 
-#### Graphical user interface
+### Graphical user interface
 
 **Note**: The provided pictures below may not look exactly the same on your system, as GTK uses different styles for each system (Linux, MacOs & Windows).
 
@@ -132,7 +132,7 @@ This process is described in more detail and with images in the following part o
 
 - If the log output is written into a file it is possible to process it further through other applications.
 
-#### Your own simulation
+### Your own simulation
 
 To get started writing your own simulation take a look at the examples folder in `src/Examples`. It contains two Simulation examples the previously shown Hello World simulation in `HelloWorld.cs` and a simulation that plots a sinus wave (`WaveExample.cs`). 
 
@@ -183,7 +183,7 @@ The **simulation API**:
 
 
 
-#### Development on Charlie
+### Development on Charlie
 
 The project never reached a major release. Therefore it contains code that is not in use or sections that are commented out. Also a lot of documentation in the code itself is missing. That said, lets begin. :)
 
@@ -218,7 +218,7 @@ The source folder contains the following:
 
 
 
-#### Licence
+### Licence
 
 From the following MIT licence excluded is the `src/Examples` folder which can be used as basis for new simulations, although it also comes WITHOUT WARRENTY OF ANY KIND.
 
